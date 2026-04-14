@@ -1,0 +1,6 @@
+id,name,latitude,longitude,population_density,energy_demand,traffic_score,grid_readiness,ev_adoption_score
+detroit-downtown-hub,Downtown Mobility Hub,42.3314,-83.0458,6720,84,91,76,69
+eastside-grocery-plaza,Eastside Grocery Plaza,42.3808,-82.9892,8110,63,74,67,54
+riverfront-visitor-lot,Riverfront Visitor Lot,42.3265,-83.0243,5180,72,82,73,77
+northland-park-ride,Northland Corridor Park-and-Ride,42.4765,-83.2219,4450,79,80,86,72
+community-college-campus,Community College Campus,42.3223,-83.1763,5890,58,64,62,61

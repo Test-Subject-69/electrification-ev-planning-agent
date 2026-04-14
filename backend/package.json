@@ -1,0 +1,18 @@
+{
+  "name": "backend",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@ev-planning/shared": "file:../shared",
+    "@supabase/supabase-js": "^2.49.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "openai": "^4.91.1"
+  }
+}

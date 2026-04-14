@@ -1,13 +1,21 @@
 {
   "name": "electrification-ev-planning-agent",
-  "version": "0.1.0",
   "private": true,
-  "description": "MVP dashboard for EV charging infrastructure planning and electrification rollout.",
+  "version": "0.2.0",
+  "description": "Walker-Miller electrification and EV infrastructure planning MVP.",
   "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
   "scripts": {
-    "dev": "node scripts/dev-server.mjs",
-    "check": "npm test && node scripts/smoke-test.mjs",
-    "test": "node tests/run-tests.mjs"
+    "dev:frontend": "npm --workspace frontend run dev",
+    "dev:backend": "npm --workspace backend run dev",
+    "build:frontend": "npm --workspace frontend run build",
+    "start:backend": "npm --workspace backend run start",
+    "check": "npm test",
+    "test": "node shared/tests/scoring.test.mjs"
   },
   "engines": {
     "node": ">=20"
