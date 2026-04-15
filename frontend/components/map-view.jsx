@@ -1,40 +1,62 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import mapboxgl from "mapbox-gl";
+import { useEffect, useRef, useState } from "react";
 import { formatPercent } from "../lib/format.js";
 
+const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const DEFAULT_ATTRIBUTION = "&copy; OpenStreetMap contributors";
+
 export function MapView({ locations, selectedId, onSelect }) {
+  const [leaflet, setLeaflet] = useState(null);
   const mapRef = useRef(null);
   const containerRef = useRef(null);
+  const tileLayerRef = useRef(null);
   const markerRefs = useRef([]);
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const tileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || DEFAULT_TILE_URL;
+  const attribution = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION;
 
   useEffect(() => {
-    if (!token || !containerRef.current || mapRef.current) {
+    let isMounted = true;
+
+    import("leaflet").then((module) => {
+      if (isMounted) {
+        setLeaflet(module.default);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!leaflet || !containerRef.current || mapRef.current) {
       return;
     }
 
-    mapboxgl.accessToken = token;
-    mapRef.current = new mapboxgl.Map({
-      container: containerRef.current,
-      style: "mapbox://styles/mapbox/light-v11",
+    const map = leaflet.map(containerRef.current, {
       center: getCenter(locations),
-      zoom: 9.4,
-      cooperativeGestures: true
+      zoom: 9,
+      scrollWheelZoom: false
     });
 
-    mapRef.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    tileLayerRef.current = leaflet.tileLayer(tileUrl, {
+      attribution,
+      maxZoom: 19
+    }).addTo(map);
+
+    mapRef.current = map;
 
     return () => {
       markerRefs.current.forEach((marker) => marker.remove());
       mapRef.current?.remove();
       mapRef.current = null;
+      tileLayerRef.current = null;
     };
-  }, [token]);
+  }, [attribution, leaflet, tileUrl]);
 
   useEffect(() => {
-    if (!mapRef.current) {
+    if (!leaflet || !mapRef.current) {
       return;
     }
 
@@ -48,41 +70,34 @@ export function MapView({ locations, selectedId, onSelect }) {
       markerElement.dataset.selected = location.id === selectedId ? "true" : "false";
       markerElement.addEventListener("click", () => onSelect(location.id));
 
-      const popup = new mapboxgl.Popup({ offset: 22 }).setHTML(
+      const popup = leaflet.popup({ offset: [0, -14] }).setContent(
         `<strong>${escapeHtml(location.name)}</strong><br>Score ${location.score}<br>ROI ${formatPercent(location.roi_estimate)}`
       );
 
-      return new mapboxgl.Marker(markerElement)
-        .setLngLat([location.longitude, location.latitude])
-        .setPopup(popup)
+      return leaflet.marker([location.latitude, location.longitude], {
+        icon: leaflet.divIcon({
+          className: "",
+          html: markerElement,
+          iconSize: [40, 40],
+          iconAnchor: [20, 20],
+          popupAnchor: [0, -16]
+        })
+      })
+        .bindPopup(popup)
         .addTo(mapRef.current);
     });
 
     if (locations.length > 0) {
-      mapRef.current.flyTo({ center: getCenter(locations), zoom: 9.4, essential: false });
+      mapRef.current.setView(getCenter(locations), 9);
     }
-  }, [locations, selectedId, onSelect]);
-
-  if (!token) {
-    return (
-      <div className="grid min-h-[440px] place-items-center rounded-lg border border-emerald-200 bg-emerald-50 p-8 text-center">
-        <div className="max-w-md">
-          <p className="text-sm font-bold uppercase text-emerald-700">Mapbox token required</p>
-          <h2 className="mt-2 text-2xl font-black text-zinc-950">Set NEXT_PUBLIC_MAPBOX_TOKEN</h2>
-          <p className="mt-3 text-sm leading-6 text-zinc-600">
-            The location portfolio is ready. Add a Mapbox public token to render the interactive deployment map.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  }, [leaflet, locations, selectedId, onSelect]);
 
   return <div ref={containerRef} className="min-h-[520px] overflow-hidden rounded-lg border border-zinc-200" />;
 }
 
 function getCenter(locations) {
   if (!locations.length) {
-    return [-83.0458, 42.3314];
+    return [42.3314, -83.0458];
   }
 
   const totals = locations.reduce(
@@ -93,7 +108,7 @@ function getCenter(locations) {
     { latitude: 0, longitude: 0 }
   );
 
-  return [totals.longitude / locations.length, totals.latitude / locations.length];
+  return [totals.latitude / locations.length, totals.longitude / locations.length];
 }
 
 function escapeHtml(value) {

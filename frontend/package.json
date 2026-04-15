@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ev-planning/shared": "file:../shared",
-    "mapbox-gl": "^3.10.0",
+    "leaflet": "^1.9.4",
     "next": "^16.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

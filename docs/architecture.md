@@ -13,7 +13,7 @@ The MVP uses a split deployment model:
 1. A user seeds sample data or uploads CSV/JSON in the dashboard.
 2. The frontend sends data to the backend.
 3. The backend normalizes rows, calculates score and ROI, asks OpenAI for summaries when configured, and persists records.
-4. The frontend reads scored locations and displays them on a Mapbox map and table.
+4. The frontend reads scored locations and displays them on an OpenStreetMap map and table.
 
 ## MVP Boundaries
 

@@ -18,7 +18,7 @@ export function createSetupRouter({ repository, recommendationService }) {
         }
       },
       requiredEnvironment: {
-        frontend: ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_MAPBOX_TOKEN"],
+        frontend: ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_MAP_TILE_URL", "NEXT_PUBLIC_MAP_ATTRIBUTION"],
         backend: ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY", "OPENAI_MODEL"]
       },
       database: {

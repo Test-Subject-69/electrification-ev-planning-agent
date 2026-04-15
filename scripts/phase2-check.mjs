@@ -5,7 +5,8 @@ const env = await loadEnv();
 const checks = [];
 let hasFailure = false;
 
-checks.push(checkPresence("NEXT_PUBLIC_MAPBOX_TOKEN", env.NEXT_PUBLIC_MAPBOX_TOKEN));
+checks.push(checkPresence("NEXT_PUBLIC_MAP_TILE_URL", env.NEXT_PUBLIC_MAP_TILE_URL));
+checks.push(checkPresence("NEXT_PUBLIC_MAP_ATTRIBUTION", env.NEXT_PUBLIC_MAP_ATTRIBUTION));
 checks.push(checkPresence("SUPABASE_URL", env.SUPABASE_URL));
 checks.push(checkPresence("SUPABASE_SERVICE_ROLE_KEY", env.SUPABASE_SERVICE_ROLE_KEY));
 checks.push(checkPresence("OPENAI_API_KEY", env.OPENAI_API_KEY));
@@ -16,7 +17,7 @@ const shouldCheckExternalServices = env.PHASE2_CHECK_EXTERNAL_SERVICES === "true
 if (shouldCheckExternalServices) {
   checks.push(await checkSupabase(env));
   checks.push(await checkOpenAi(env));
-  checks.push(await checkMapbox(env));
+  checks.push(await checkOpenStreetMap(env));
 } else {
   checks.push({
     name: "External service calls",
@@ -138,28 +139,30 @@ async function checkOpenAi(env) {
   }
 }
 
-async function checkMapbox(env) {
-  if (!env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+async function checkOpenStreetMap(env) {
+  if (!env.NEXT_PUBLIC_MAP_TILE_URL) {
     return {
-      name: "Mapbox public token",
+      name: "OpenStreetMap tile access",
       status: "skipped",
-      detail: "NEXT_PUBLIC_MAPBOX_TOKEN is required."
+      detail: "NEXT_PUBLIC_MAP_TILE_URL is required."
     };
   }
 
   try {
-    const url = new URL("https://api.mapbox.com/styles/v1/mapbox/light-v11");
-    url.searchParams.set("access_token", env.NEXT_PUBLIC_MAPBOX_TOKEN);
-    const response = await fetch(url);
+    const tileUrl = env.NEXT_PUBLIC_MAP_TILE_URL
+      .replace("{z}", "0")
+      .replace("{x}", "0")
+      .replace("{y}", "0");
+    const response = await fetch(tileUrl);
 
     return {
-      name: "Mapbox public token",
+      name: "OpenStreetMap tile access",
       status: response.ok ? "pass" : "fail",
-      detail: response.ok ? "can load light-v11 style" : `returned HTTP ${response.status}`
+      detail: response.ok ? "can load tile 0/0/0" : `returned HTTP ${response.status}`
     };
   } catch (error) {
     return {
-      name: "Mapbox public token",
+      name: "OpenStreetMap tile access",
       status: "fail",
       detail: getErrorMessage(error)
     };

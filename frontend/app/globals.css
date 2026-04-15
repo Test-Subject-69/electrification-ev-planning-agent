@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "mapbox-gl/dist/mapbox-gl.css";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --background: #f7fbf8;
@@ -33,10 +33,13 @@ textarea {
   letter-spacing: 0;
 }
 
-.mapboxgl-popup-content {
+.leaflet-popup-content-wrapper {
   border-radius: 8px;
-  padding: 12px;
   color: #111816;
+}
+
+.leaflet-popup-content {
+  margin: 12px;
 }
 
 .map-marker {

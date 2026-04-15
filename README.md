@@ -4,7 +4,7 @@ MVP for Walker-Miller Energy Services to plan EV charging infrastructure using l
 
 ## Stack
 
-- `frontend/`: Next.js, Tailwind CSS, Mapbox, deployable to Vercel.
+- `frontend/`: Next.js, Tailwind CSS, OpenStreetMap, deployable to Vercel.
 - `backend/`: Node.js Express API, deployable to Render.
 - `shared/`: deterministic scoring, ROI model, sample seed data, and shared shapes.
 - `docs/`: architecture notes, API contract, and Supabase schema.
@@ -33,7 +33,7 @@ The backend runs on `http://localhost:4000`. If Supabase is not configured, it u
 - Upload or seed location data.
 - Score locations with a deterministic formula.
 - Generate AI recommendation summaries.
-- Display scored locations on a Mapbox map.
+- Display scored locations on an OpenStreetMap map.
 - Show ROI estimate per location.
 
 ## Required Table
@@ -58,7 +58,7 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-See [docs/phase-2-setup.md](docs/phase-2-setup.md) for Supabase, Mapbox, and OpenAI setup.
+See [docs/phase-2-setup.md](docs/phase-2-setup.md) for Supabase, OpenStreetMap, and OpenAI setup.
 
 ## Deployment
 
@@ -67,7 +67,7 @@ Vercel:
 - Project root: `frontend`
 - Build command: `npm run build`
 - Output: Next.js default
-- Set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_MAPBOX_TOKEN`
+- Set `NEXT_PUBLIC_API_URL`; optionally set `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION`
 
 Render:
 

@@ -5,7 +5,7 @@ Phase 2 connects the MVP to real services while keeping the app demoable if cred
 ## Services
 
 - Supabase Postgres stores locations.
-- Mapbox renders the live map.
+- OpenStreetMap renders the live map.
 - OpenAI generates recommendation summaries.
 
 ## Steps
@@ -19,7 +19,8 @@ Phase 2 connects the MVP to real services while keeping the app demoable if cred
 2. Fill in `.env`.
 
    ```text
-   NEXT_PUBLIC_MAPBOX_TOKEN=
+   NEXT_PUBLIC_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+   NEXT_PUBLIC_MAP_ATTRIBUTION=&copy; OpenStreetMap contributors
    SUPABASE_URL=
    SUPABASE_SERVICE_ROLE_KEY=
    OPENAI_API_KEY=
@@ -63,13 +64,13 @@ Without credentials:
 
 - Backend uses in-memory storage.
 - Recommendations use deterministic fallback copy.
-- Frontend shows that a Mapbox token is needed.
+- Frontend renders OpenStreetMap tiles with no map token required.
 
 With credentials:
 
 - Backend persists locations to Supabase.
 - OpenAI writes recommendation summaries.
-- Mapbox displays locations on the live map.
+- OpenStreetMap displays locations on the live map.
 
 ## Quick Smoke Test
 
