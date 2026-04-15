@@ -7,8 +7,8 @@ let hasFailure = false;
 
 checks.push(checkPresence("NEXT_PUBLIC_MAP_TILE_URL", env.NEXT_PUBLIC_MAP_TILE_URL));
 checks.push(checkPresence("NEXT_PUBLIC_MAP_ATTRIBUTION", env.NEXT_PUBLIC_MAP_ATTRIBUTION));
-checks.push(checkPresence("SUPABASE_URL", env.SUPABASE_URL));
-checks.push(checkPresence("SUPABASE_SERVICE_ROLE_KEY", env.SUPABASE_SERVICE_ROLE_KEY));
+checks.push(checkPresence("Supabase URL", getSupabaseConfig(env).url, getSupabaseConfig(env).urlSource));
+checks.push(checkPresence("Supabase API key", getSupabaseConfig(env).key, getSupabaseConfig(env).keySource));
 checks.push(checkPresence("OPENAI_API_KEY", env.OPENAI_API_KEY));
 checks.push(checkPresence("OPENAI_MODEL", env.OPENAI_MODEL));
 
@@ -61,28 +61,31 @@ async function loadEnv() {
   return values;
 }
 
-function checkPresence(name, value) {
+function checkPresence(name, value, source = "") {
   return {
     name,
     status: value ? "pass" : "skipped",
-    detail: value ? "configured" : "not configured yet"
+    detail: value ? `configured${source ? ` via ${source}` : ""}` : "not configured yet"
   };
 }
 
 async function checkSupabase(env) {
-  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  const config = getSupabaseConfig(env);
+
+  if (!config.url || !config.key) {
     return {
       name: "Supabase locations table",
       status: "skipped",
-      detail: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
+      detail:
+        "Supabase URL and API key are required. Use SUPABASE_SERVICE_ROLE_KEY for production, or the publishable key for MVP mode."
     };
   }
 
   try {
-    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/locations?select=id&limit=1`, {
+    const response = await fetch(`${config.url}/rest/v1/locations?select=id&limit=1`, {
       headers: {
-        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+        apikey: config.key,
+        Authorization: `Bearer ${config.key}`
       }
     });
 
@@ -106,6 +109,35 @@ async function checkSupabase(env) {
       detail: getErrorMessage(error)
     };
   }
+}
+
+function getSupabaseConfig(env) {
+  if (env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      url: env.SUPABASE_URL,
+      key: env.SUPABASE_SERVICE_ROLE_KEY,
+      urlSource: "SUPABASE_URL",
+      keySource: "SUPABASE_SERVICE_ROLE_KEY"
+    };
+  }
+
+  if (env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) {
+    return {
+      url: env.SUPABASE_URL,
+      key: env.SUPABASE_PUBLISHABLE_KEY,
+      urlSource: "SUPABASE_URL",
+      keySource: "SUPABASE_PUBLISHABLE_KEY"
+    };
+  }
+
+  return {
+    url: env.SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL || "",
+    key: env.SUPABASE_PUBLISHABLE_KEY || env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "",
+    urlSource: env.SUPABASE_URL ? "SUPABASE_URL" : "NEXT_PUBLIC_SUPABASE_URL",
+    keySource: env.SUPABASE_PUBLISHABLE_KEY
+      ? "SUPABASE_PUBLISHABLE_KEY"
+      : "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+  };
 }
 
 async function checkOpenAi(env) {

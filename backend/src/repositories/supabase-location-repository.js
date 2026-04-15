@@ -4,10 +4,10 @@ import { env } from "../config/env.js";
 const TABLE_NAME = "locations";
 
 export class SupabaseLocationRepository {
-  mode = "supabase";
+  mode = env.supabaseKeyType === "service-role" ? "supabase" : "supabase-publishable";
 
   constructor() {
-    this.client = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
+    this.client = createClient(env.supabaseUrl, env.supabaseKey, {
       auth: { persistSession: false }
     });
   }

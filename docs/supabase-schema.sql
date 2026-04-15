@@ -15,3 +15,9 @@ create table if not exists public.locations (
 
 create index if not exists locations_created_at_idx
   on public.locations (created_at desc);
+
+-- MVP access for Supabase publishable keys.
+-- For production, prefer using SUPABASE_SERVICE_ROLE_KEY from the backend
+-- or replace these grants with tighter RLS policies.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on public.locations to anon, authenticated;

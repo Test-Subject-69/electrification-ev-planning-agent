@@ -75,3 +75,4 @@ Render:
 - Build command: `npm install`
 - Start command: `npm --workspace backend run start`
 - Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and `FRONTEND_ORIGIN`.
+- If you only have Supabase's publishable key, set `SUPABASE_PUBLISHABLE_KEY` for MVP mode. Use `SUPABASE_SERVICE_ROLE_KEY` for production backend writes.

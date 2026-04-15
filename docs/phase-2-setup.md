@@ -19,13 +19,18 @@ Phase 2 connects the MVP to real services while keeping the app demoable if cred
 2. Fill in `.env`.
 
    ```text
+   NEXT_PUBLIC_SUPABASE_URL=
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
    NEXT_PUBLIC_MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
    NEXT_PUBLIC_MAP_ATTRIBUTION=&copy; OpenStreetMap contributors
    SUPABASE_URL=
    SUPABASE_SERVICE_ROLE_KEY=
+   SUPABASE_PUBLISHABLE_KEY=
    OPENAI_API_KEY=
    OPENAI_MODEL=gpt-4.1-mini
    ```
+
+   Supabase's `sb_publishable_...` key is enough for MVP mode if the `locations` table permits API access. For production backend writes, use a server-side service-role key instead.
 
 3. In Supabase, open SQL Editor and run:
 
