@@ -14,6 +14,9 @@
     "dev:backend": "npm --workspace backend run dev",
     "build:frontend": "npm --workspace frontend run build",
     "start:backend": "npm --workspace backend run start",
+    "phase2:init": "node scripts/create-env.mjs",
+    "phase2:check": "node scripts/phase2-check.mjs",
+    "phase2:setup": "npm run phase2:init && npm run phase2:check",
     "check": "npm test",
     "test": "node shared/tests/scoring.test.mjs"
   },

@@ -50,11 +50,15 @@ recommendation_summary, created_at
 ## Local Commands
 
 ```bash
+npm run phase2:init
+npm run phase2:check
 npm run test
 npm run check
 npm run dev:backend
 npm run dev:frontend
 ```
+
+See [docs/phase-2-setup.md](docs/phase-2-setup.md) for Supabase, Mapbox, and OpenAI setup.
 
 ## Deployment
 

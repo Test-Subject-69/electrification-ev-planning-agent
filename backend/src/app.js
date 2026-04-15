@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
 import { createLocationRouter } from "./routes/locations.js";
+import { createSetupRouter } from "./routes/setup.js";
 import { createRepository } from "./repositories/create-repository.js";
 import { RecommendationService } from "./services/recommendation-service.js";
 
@@ -17,10 +18,15 @@ export function createApp() {
     response.json({
       ok: true,
       repository: repository.mode,
-      ai: recommendationService.mode
+      ai: recommendationService.mode,
+      phase2: {
+        supabaseConfigured: repository.mode === "supabase",
+        openaiConfigured: recommendationService.mode === "openai"
+      }
     });
   });
 
+  app.use("/api/setup", createSetupRouter({ repository, recommendationService }));
   app.use("/api/locations", createLocationRouter({ repository, recommendationService }));
 
   app.use((error, _request, response, _next) => {

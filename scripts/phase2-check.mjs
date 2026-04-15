@@ -1,0 +1,184 @@
+import { readFile, access } from "node:fs/promises";
+import { constants } from "node:fs";
+
+const env = await loadEnv();
+const checks = [];
+let hasFailure = false;
+
+checks.push(checkPresence("NEXT_PUBLIC_MAPBOX_TOKEN", env.NEXT_PUBLIC_MAPBOX_TOKEN));
+checks.push(checkPresence("SUPABASE_URL", env.SUPABASE_URL));
+checks.push(checkPresence("SUPABASE_SERVICE_ROLE_KEY", env.SUPABASE_SERVICE_ROLE_KEY));
+checks.push(checkPresence("OPENAI_API_KEY", env.OPENAI_API_KEY));
+checks.push(checkPresence("OPENAI_MODEL", env.OPENAI_MODEL));
+
+const shouldCheckExternalServices = env.PHASE2_CHECK_EXTERNAL_SERVICES === "true";
+
+if (shouldCheckExternalServices) {
+  checks.push(await checkSupabase(env));
+  checks.push(await checkOpenAi(env));
+  checks.push(await checkMapbox(env));
+} else {
+  checks.push({
+    name: "External service calls",
+    status: "skipped",
+    detail: "Set PHASE2_CHECK_EXTERNAL_SERVICES=true to verify live credentials."
+  });
+}
+
+for (const check of checks) {
+  const icon = check.status === "pass" ? "PASS" : check.status === "fail" ? "FAIL" : "INFO";
+  console.log(`${icon} ${check.name}: ${check.detail}`);
+  if (check.status === "fail") {
+    hasFailure = true;
+  }
+}
+
+if (hasFailure) {
+  process.exitCode = 1;
+}
+
+async function loadEnv() {
+  const envFile = new URL("../.env", import.meta.url);
+  const exampleFile = new URL("../.env.example", import.meta.url);
+  const values = { ...process.env };
+
+  const fileToRead = await exists(envFile) ? envFile : exampleFile;
+  const text = await readFile(fileToRead, "utf8");
+
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.includes("=")) {
+      continue;
+    }
+
+    const index = trimmed.indexOf("=");
+    const key = trimmed.slice(0, index).trim();
+    const rawValue = trimmed.slice(index + 1).trim();
+    values[key] = values[key] || stripQuotes(rawValue);
+  }
+
+  return values;
+}
+
+function checkPresence(name, value) {
+  return {
+    name,
+    status: value ? "pass" : "skipped",
+    detail: value ? "configured" : "not configured yet"
+  };
+}
+
+async function checkSupabase(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+    return {
+      name: "Supabase locations table",
+      status: "skipped",
+      detail: "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
+    };
+  }
+
+  try {
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/locations?select=id&limit=1`, {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+      }
+    });
+
+    if (response.ok) {
+      return {
+        name: "Supabase locations table",
+        status: "pass",
+        detail: "reachable"
+      };
+    }
+
+    return {
+      name: "Supabase locations table",
+      status: "fail",
+      detail: `returned HTTP ${response.status}. Confirm docs/supabase-schema.sql was run.`
+    };
+  } catch (error) {
+    return {
+      name: "Supabase locations table",
+      status: "fail",
+      detail: getErrorMessage(error)
+    };
+  }
+}
+
+async function checkOpenAi(env) {
+  if (!env.OPENAI_API_KEY) {
+    return {
+      name: "OpenAI model access",
+      status: "skipped",
+      detail: "OPENAI_API_KEY is required."
+    };
+  }
+
+  try {
+    const model = env.OPENAI_MODEL || "gpt-4.1-mini";
+    const response = await fetch(`https://api.openai.com/v1/models/${encodeURIComponent(model)}`, {
+      headers: {
+        Authorization: `Bearer ${env.OPENAI_API_KEY}`
+      }
+    });
+
+    return {
+      name: "OpenAI model access",
+      status: response.ok ? "pass" : "fail",
+      detail: response.ok ? `${model} is reachable` : `returned HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      name: "OpenAI model access",
+      status: "fail",
+      detail: getErrorMessage(error)
+    };
+  }
+}
+
+async function checkMapbox(env) {
+  if (!env.NEXT_PUBLIC_MAPBOX_TOKEN) {
+    return {
+      name: "Mapbox public token",
+      status: "skipped",
+      detail: "NEXT_PUBLIC_MAPBOX_TOKEN is required."
+    };
+  }
+
+  try {
+    const url = new URL("https://api.mapbox.com/styles/v1/mapbox/light-v11");
+    url.searchParams.set("access_token", env.NEXT_PUBLIC_MAPBOX_TOKEN);
+    const response = await fetch(url);
+
+    return {
+      name: "Mapbox public token",
+      status: response.ok ? "pass" : "fail",
+      detail: response.ok ? "can load light-v11 style" : `returned HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      name: "Mapbox public token",
+      status: "fail",
+      detail: getErrorMessage(error)
+    };
+  }
+}
+
+async function exists(fileUrl) {
+  try {
+    await access(fileUrl, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function stripQuotes(value) {
+  return value.replace(/^["']|["']$/g, "");
+}
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : "unknown error";
+}
