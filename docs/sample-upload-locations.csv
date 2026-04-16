@@ -1,0 +1,41 @@
+id,name,latitude,longitude,population_density,energy_demand,traffic_score,grid_readiness,ev_adoption_score
+detroit-downtown-campus,Downtown Detroit Campus,42.3314,-83.0458,9200,88,94,81,76
+midtown-hospital-district,Midtown Hospital District,42.3521,-83.0619,8700,91,89,78,74
+new-center-transit-hub,New Center Transit Hub,42.3665,-83.0739,7800,83,86,80,70
+corktown-mobility-lot,Corktown Mobility Lot,42.3317,-83.0766,6300,71,82,73,68
+riverfront-event-parking,Riverfront Event Parking,42.3265,-83.0243,5200,75,88,74,79
+eastern-market-fleet-stop,Eastern Market Fleet Stop,42.3472,-83.0402,6900,77,84,69,66
+west-village-retail-node,West Village Retail Node,42.3568,-82.9988,7200,68,76,65,62
+eastside-grocery-plaza,Eastside Grocery Plaza,42.3808,-82.9892,8110,63,74,67,54
+grand-river-commercial-corridor,Grand River Commercial Corridor,42.3718,-83.1306,7400,79,81,71,65
+livernois-avenue-of-fashion,Livernois Avenue of Fashion,42.4215,-83.1415,7900,73,78,69,67
+southwest-detroit-community-center,Southwest Detroit Community Center,42.3099,-83.0927,8300,66,72,59,52
+bagley-neighborhood-hub,Bagley Neighborhood Hub,42.4289,-83.1363,7600,61,67,64,58
+hamtramck-city-lot,Hamtramck City Lot,42.3928,-83.0496,11100,69,73,62,55
+highland-park-civic-center,Highland Park Civic Center,42.4056,-83.0969,6900,64,70,61,51
+dearborn-michigan-avenue,Dearborn Michigan Avenue,42.3223,-83.1763,5890,58,64,62,61
+dearborn-fairlane-area,Dearborn Fairlane Area,42.3173,-83.2219,6100,82,85,84,73
+southfield-office-park,Southfield Office Park,42.4734,-83.2219,4450,79,80,86,72
+royal-oak-downtown-lot,Royal Oak Downtown Lot,42.4895,-83.1446,6200,76,83,77,80
+ferndale-nine-mile-node,Ferndale Nine Mile Node,42.4606,-83.1346,7200,70,79,73,77
+oak-park-municipal-campus,Oak Park Municipal Campus,42.4595,-83.1827,6500,62,68,75,66
+madison-heights-retail-corridor,Madison Heights Retail Corridor,42.4859,-83.1052,5900,74,81,76,71
+troy-business-district,Troy Business District,42.5625,-83.1542,4300,88,86,89,82
+auburn-hills-campus,Auburn Hills Campus,42.6875,-83.2341,3200,92,82,88,79
+pontiac-transit-center,Pontiac Transit Center,42.6389,-83.2910,5200,67,75,63,57
+farmington-hills-town-center,Farmington Hills Town Center,42.4989,-83.3677,3900,73,77,82,75
+novi-retail-district,Novi Retail District,42.4806,-83.4755,3600,84,88,85,83
+livonia-civic-center,Livonia Civic Center,42.3684,-83.3527,4200,65,70,78,69
+westland-shopping-node,Westland Shopping Node,42.3242,-83.4002,5100,72,79,70,63
+romulus-airport-parking,Romulus Airport Parking,42.2162,-83.3554,2100,94,92,87,81
+allen-park-retail-plaza,Allen Park Retail Plaza,42.2575,-83.2110,4800,69,76,72,64
+wyandotte-riverfront-lot,Wyandotte Riverfront Lot,42.2142,-83.1499,5300,63,71,68,60
+downriver-community-campus,Downriver Community Campus,42.2048,-83.2697,4700,59,65,66,56
+grosse-pointe-village,Grosse Pointe Village,42.3861,-82.9119,6100,67,75,74,78
+st-clair-shores-marina-district,St Clair Shores Marina District,42.4974,-82.8964,5600,70,76,71,73
+roseville-retail-corridor,Roseville Retail Corridor,42.4973,-82.9371,5700,73,80,69,65
+warren-tech-center,Warren Tech Center,42.5145,-83.0147,5000,87,84,83,76
+sterling-heights-municipal-lot,Sterling Heights Municipal Lot,42.5803,-83.0302,4600,75,78,80,72
+macomb-township-corridor,Macomb Township Corridor,42.6720,-82.9160,2800,66,69,76,68
+ann-arbor-downtown-garage,Ann Arbor Downtown Garage,42.2808,-83.7430,7800,86,88,82,89
+ypsilanti-transit-center,Ypsilanti Transit Center,42.2411,-83.6130,6600,68,74,67,62

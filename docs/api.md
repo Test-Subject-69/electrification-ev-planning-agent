@@ -16,7 +16,7 @@ Returns scored locations.
 
 ## `POST /api/locations/seed`
 
-Seeds the default Walker-Miller demo locations, calculates scores and ROI, generates recommendation summaries, and stores them.
+Adds or updates the default Walker-Miller demo locations, calculates scores and ROI, generates recommendation summaries, and stores them without removing uploaded locations.
 
 ## `POST /api/locations/upload`
 

@@ -13,7 +13,7 @@ export class LocationService {
 
   async seed() {
     const enriched = await this.#scoreAndSummarize(sampleLocations);
-    await this.repository.replaceAll(enriched.map(toDatabaseRecord));
+    await this.repository.upsertMany(enriched.map(toDatabaseRecord));
     return this.list();
   }
 

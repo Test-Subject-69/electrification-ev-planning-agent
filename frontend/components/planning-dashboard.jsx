@@ -44,7 +44,7 @@ export function PlanningDashboard() {
       const payload = await seedLocations();
       setLocations(payload.locations || []);
       setSelectedId(payload.locations?.[0]?.id || "");
-      setMessage("Seed locations scored and saved.");
+      setMessage("Demo locations scored and saved without removing uploaded locations.");
     });
   }
 
@@ -95,7 +95,7 @@ export function PlanningDashboard() {
         </div>
         <div className="flex flex-wrap gap-3">
           <button className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white" onClick={handleSeed}>
-            Seed Locations
+            Add Demo Locations
           </button>
           <label className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950">
             Upload CSV
