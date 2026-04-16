@@ -12,6 +12,10 @@ export function createSetupRouter({ repository, recommendationService }) {
           mode: repository.mode,
           keyType: env.supabaseKeyType
         },
+        auth: {
+          required: env.supabaseAuthRequired,
+          provider: "supabase"
+        },
         openai: {
           configured: recommendationService.mode === "openai",
           mode: recommendationService.mode,
@@ -30,6 +34,7 @@ export function createSetupRouter({ repository, recommendationService }) {
           "SUPABASE_URL",
           "SUPABASE_SERVICE_ROLE_KEY",
           "SUPABASE_PUBLISHABLE_KEY",
+          "SUPABASE_AUTH_REQUIRED",
           "OPENAI_API_KEY",
           "OPENAI_MODEL"
         ]

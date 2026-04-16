@@ -10,7 +10,7 @@ import {
 import { formatNumber, formatPercent } from "../lib/format.js";
 import { MapView } from "./map-view.jsx";
 
-export function PlanningDashboard() {
+export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onSignOut }) {
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +25,7 @@ export function PlanningDashboard() {
     setMessage("");
 
     try {
-      const payload = await fetchLocations();
+      const payload = await fetchLocations(accessToken);
       setLocations(payload.locations || []);
       setSelectedId((current) => current || payload.locations?.[0]?.id || "");
     } catch (error) {
@@ -33,7 +33,7 @@ export function PlanningDashboard() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     loadLocations();
@@ -41,7 +41,7 @@ export function PlanningDashboard() {
 
   async function handleSeed() {
     await runAction(async () => {
-      const payload = await seedLocations();
+      const payload = await seedLocations(accessToken);
       setLocations(payload.locations || []);
       setSelectedId(payload.locations?.[0]?.id || "");
       setMessage("Demo locations scored and saved without removing uploaded locations.");
@@ -56,7 +56,7 @@ export function PlanningDashboard() {
 
     await runAction(async () => {
       const csv = await file.text();
-      const payload = await uploadLocationsCsv(csv);
+      const payload = await uploadLocationsCsv(csv, accessToken);
       setLocations(payload.locations || []);
       setSelectedId(payload.locations?.[0]?.id || "");
       setMessage("Uploaded locations scored and saved.");
@@ -65,7 +65,7 @@ export function PlanningDashboard() {
 
   async function handleRegenerate() {
     await runAction(async () => {
-      const payload = await regenerateRecommendations();
+      const payload = await regenerateRecommendations(accessToken);
       setLocations(payload.locations || []);
       setMessage("Recommendation summaries refreshed.");
     });
@@ -92,6 +92,9 @@ export function PlanningDashboard() {
           <h1 className="mt-2 max-w-3xl text-3xl font-black leading-tight text-zinc-950 sm:text-4xl">
             Electrification & EV Planning Agent
           </h1>
+          {currentUserEmail ? (
+            <p className="mt-2 text-sm font-bold text-zinc-500">Signed in as {currentUserEmail}</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
           <button className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white" onClick={handleSeed}>
@@ -107,6 +110,14 @@ export function PlanningDashboard() {
           >
             Refresh AI Summaries
           </button>
+          {onSignOut ? (
+            <button
+              className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950"
+              onClick={onSignOut}
+            >
+              Sign Out
+            </button>
+          ) : null}
         </div>
       </header>
 

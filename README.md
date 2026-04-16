@@ -30,6 +30,7 @@ The backend runs on `http://localhost:4000`. If Supabase is not configured, it u
 
 ## Core Features
 
+- Login with Supabase email/password authentication. Registration is intentionally not exposed in the app.
 - Upload or seed location data.
 - Score locations with a deterministic formula.
 - Generate AI recommendation summaries.
@@ -67,12 +68,13 @@ Vercel:
 - Project root: `frontend`
 - Build command: `npm run build`
 - Output: Next.js default
-- Set `NEXT_PUBLIC_API_URL`; optionally set `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION`
+- Set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`; optionally set `NEXT_PUBLIC_MAP_TILE_URL` and `NEXT_PUBLIC_MAP_ATTRIBUTION`
+- Create login users in Supabase under Authentication. The app does not provide public registration.
 
 Render:
 
 - Use `render.yaml` from the repo root, or create a Node web service.
 - Build command: `npm install`
 - Start command: `npm --workspace backend run start`
-- Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and `FRONTEND_ORIGIN`.
+- Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_AUTH_REQUIRED`, `OPENAI_API_KEY`, `OPENAI_MODEL`, and `FRONTEND_ORIGIN`.
 - If you only have Supabase's publishable key, set `SUPABASE_PUBLISHABLE_KEY` for MVP mode. Use `SUPABASE_SERVICE_ROLE_KEY` for production backend writes.

@@ -1,29 +1,30 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-export async function fetchLocations() {
-  return request("/api/locations");
+export async function fetchLocations(accessToken = "") {
+  return request("/api/locations", {}, accessToken);
 }
 
-export async function seedLocations() {
-  return request("/api/locations/seed", { method: "POST" });
+export async function seedLocations(accessToken = "") {
+  return request("/api/locations/seed", { method: "POST" }, accessToken);
 }
 
-export async function uploadLocationsCsv(csv) {
+export async function uploadLocationsCsv(csv, accessToken = "") {
   return request("/api/locations/upload", {
     method: "POST",
     body: JSON.stringify({ csv })
-  });
+  }, accessToken);
 }
 
-export async function regenerateRecommendations() {
-  return request("/api/locations/recommendations", { method: "POST" });
+export async function regenerateRecommendations(accessToken = "") {
+  return request("/api/locations/recommendations", { method: "POST" }, accessToken);
 }
 
-async function request(path, options = {}) {
+async function request(path, options = {}, accessToken = "") {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(options.headers || {})
     },
     cache: "no-store"

@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { createLocationRouter } from "./routes/locations.js";
 import { createSetupRouter } from "./routes/setup.js";
 import { createRepository } from "./repositories/create-repository.js";
+import { requireSupabaseAuth } from "./middleware/require-auth.js";
 import { RecommendationService } from "./services/recommendation-service.js";
 
 export function createApp() {
@@ -21,13 +22,14 @@ export function createApp() {
       ai: recommendationService.mode,
       phase2: {
         supabaseConfigured: repository.mode === "supabase",
-        openaiConfigured: recommendationService.mode === "openai"
+        openaiConfigured: recommendationService.mode === "openai",
+        supabaseAuthRequired: env.supabaseAuthRequired
       }
     });
   });
 
   app.use("/api/setup", createSetupRouter({ repository, recommendationService }));
-  app.use("/api/locations", createLocationRouter({ repository, recommendationService }));
+  app.use("/api/locations", requireSupabaseAuth, createLocationRouter({ repository, recommendationService }));
 
   app.use((error, _request, response, _next) => {
     const message = error instanceof Error ? error.message : "Unexpected server error";

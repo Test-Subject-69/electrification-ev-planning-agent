@@ -1,5 +1,5 @@
-import { PlanningDashboard } from "../components/planning-dashboard.jsx";
+import { AuthShell } from "../components/auth-shell.jsx";
 
 export default function Home() {
-  return <PlanningDashboard />;
+  return <AuthShell />;
 }

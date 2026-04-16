@@ -10,6 +10,14 @@ http://localhost:4000
 
 Returns API health and repository mode.
 
+## Authentication
+
+When Supabase auth is required, location endpoints expect the logged-in user's access token:
+
+```text
+Authorization: Bearer <supabase_access_token>
+```
+
 ## `GET /api/locations`
 
 Returns scored locations.

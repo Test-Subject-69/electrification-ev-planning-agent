@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ev-planning/shared": "file:../shared",
+    "@supabase/supabase-js": "^2.49.4",
     "leaflet": "^1.9.4",
     "next": "^16.0.0",
     "react": "^19.0.0",
