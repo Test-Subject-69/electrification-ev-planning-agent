@@ -40,7 +40,7 @@ export function MapView({ locations, selectedId, onSelect }) {
     const map = leaflet.map(containerRef.current, {
       center: getCenter(locations),
       zoom: DEFAULT_ZOOM,
-      scrollWheelZoom: false
+      scrollWheelZoom: true
     });
 
     tileLayerRef.current = leaflet.tileLayer(tileUrl, {
@@ -81,8 +81,8 @@ export function MapView({ locations, selectedId, onSelect }) {
         icon: leaflet.divIcon({
           className: "",
           html: markerElement,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
           popupAnchor: [0, -16]
         })
       }).bindPopup(popup);
@@ -103,7 +103,7 @@ export function MapView({ locations, selectedId, onSelect }) {
     }
   }, [leaflet, locations, selectedId, onSelect]);
 
-  return <div ref={containerRef} className="min-h-[520px] overflow-hidden rounded-lg border border-zinc-200" />;
+  return <div ref={containerRef} className="map-canvas" />;
 }
 
 function getCenter(locations) {

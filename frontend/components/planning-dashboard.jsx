@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchLocations,
   regenerateRecommendations,
@@ -10,11 +10,14 @@ import {
 import { formatNumber, formatPercent } from "../lib/format.js";
 import { MapView } from "./map-view.jsx";
 
+const LOCATION_PAGE_SIZE = 10;
+
 export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onSignOut }) {
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const uploadInputRef = useRef(null);
 
   const selectedLocation = useMemo(() => {
     return locations.find((location) => location.id === selectedId) || locations[0];
@@ -61,6 +64,8 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
       setSelectedId(payload.locations?.[0]?.id || "");
       setMessage("Uploaded locations scored and saved.");
     });
+
+    event.target.value = "";
   }
 
   async function handleRegenerate() {
@@ -85,183 +90,251 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-[1480px] flex-col gap-5 px-4 py-6 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase text-emerald-700">Walker-Miller Energy Services</p>
-          <h1 className="mt-2 max-w-3xl text-3xl font-black leading-tight text-zinc-950 sm:text-4xl">
-            Electrification & EV Planning Agent
-          </h1>
-          {currentUserEmail ? (
-            <p className="mt-2 text-sm font-bold text-zinc-500">Signed in as {currentUserEmail}</p>
-          ) : null}
+    <main className="app-shell">
+      <header className="app-header">
+        <div className="app-title">
+          <p className="brand-line">Walker-Miller Energy Services</p>
+          <h1>Electrification & EV Planning Agent</h1>
+          {currentUserEmail ? <p className="app-user">Signed in as {currentUserEmail}</p> : null}
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white" onClick={handleSeed}>
-            Add Demo Locations
+
+        <div className="app-actions" aria-label="Planning actions">
+          <button className="button-primary" type="button" onClick={handleSeed} disabled={isLoading}>
+            Add demo locations
           </button>
-          <label className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950">
-            Upload CSV
-            <input className="sr-only" type="file" accept=".csv" onChange={handleUpload} />
-          </label>
           <button
-            className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950"
-            onClick={handleRegenerate}
+            className="button-secondary"
+            type="button"
+            onClick={() => uploadInputRef.current?.click()}
+            disabled={isLoading}
           >
-            Refresh AI Summaries
+            Upload CSV
+          </button>
+          <input
+            ref={uploadInputRef}
+            className="visually-hidden"
+            type="file"
+            accept=".csv"
+            onChange={handleUpload}
+            disabled={isLoading}
+          />
+          <button className="button-secondary" type="button" onClick={handleRegenerate} disabled={isLoading}>
+            Refresh summaries
           </button>
           {onSignOut ? (
-            <button
-              className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950"
-              onClick={onSignOut}
-            >
-              Sign Out
+            <button className="button-secondary" type="button" onClick={onSignOut}>
+              Sign out
             </button>
           ) : null}
         </div>
       </header>
 
-      {message ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-zinc-800">
-          {message}
-        </div>
-      ) : null}
+      <div className="app-content">
+        {message ? <div className="notice notice-warning">{message}</div> : null}
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <Metric label="Locations" value={locations.length} />
-        <Metric label="Average Score" value={formatNumber(average(locations.map((location) => location.score)))} />
-        <Metric label="High Priority" value={locations.filter((location) => location.priority === "High").length} />
-        <Metric label="Average ROI" value={formatPercent(average(locations.map((location) => location.roi_estimate)))} />
-      </section>
+        <section className="summary-strip" aria-label="Planning summary">
+          <SummaryItem label="Locations" value={locations.length} />
+          <SummaryItem label="Average score" value={formatNumber(average(locations.map((location) => location.score)))} />
+          <SummaryItem label="High priority" value={locations.filter((location) => location.priority === "High").length} />
+          <SummaryItem label="Average ROI" value={formatPercent(average(locations.map((location) => location.roi_estimate)))} />
+        </section>
 
-      <section className="grid gap-5 lg:grid-cols-[1.45fr_0.55fr]">
-        <div className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs font-black uppercase text-emerald-700">Deployment Geography</p>
-              <h2 className="text-xl font-black text-zinc-950">Scored Location Map</h2>
+        <section className="workspace-grid">
+          <section className="map-panel" aria-labelledby="map-title">
+            <div className="section-header">
+              <div>
+                <h2 id="map-title">Scored location map</h2>
+                <p>{locations.length ? `${locations.length} candidate locations` : "No locations loaded"}</p>
+              </div>
+              <span className="status-text">{isLoading ? "Loading" : "Ready"}</span>
             </div>
-            {isLoading ? <span className="text-sm font-bold text-zinc-500">Loading</span> : null}
-          </div>
-          <MapView locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
-        </div>
+            <MapView locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
+          </section>
 
-        <aside className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-          {selectedLocation ? <LocationDetail location={selectedLocation} /> : <EmptyState />}
-        </aside>
-      </section>
+          <aside className="detail-panel" aria-label="Selected location details">
+            {selectedLocation ? <LocationDetail location={selectedLocation} /> : <EmptyState />}
+          </aside>
+        </section>
 
-      <section className="grid gap-5 lg:grid-cols-[0.58fr_0.42fr]">
-        <LocationTable locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
-        <Recommendations locations={locations} />
-      </section>
+        <section className="content-grid">
+          <LocationTable locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
+          <Recommendations locations={locations} />
+        </section>
+      </div>
     </main>
   );
 }
 
-function Metric({ label, value }) {
+function SummaryItem({ label, value }) {
   return (
-    <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-bold text-zinc-500">{label}</p>
-      <strong className="mt-2 block text-3xl font-black text-zinc-950">{value}</strong>
-    </article>
+    <div className="summary-item">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
   );
 }
 
 function LocationDetail({ location }) {
   return (
-    <div>
-      <p className="text-xs font-black uppercase text-emerald-700">Selected Location</p>
-      <h2 className="mt-2 text-2xl font-black text-zinc-950">{location.name}</h2>
-      <div className="mt-5 grid grid-cols-2 gap-3">
+    <section className="location-detail">
+      <p className="context-label">Selected location</p>
+      <h2>{location.name}</h2>
+      <dl className="detail-grid">
         <Detail label="Score" value={formatNumber(location.score)} />
         <Detail label="Priority" value={location.priority} />
         <Detail label="ROI" value={formatPercent(location.roi_estimate)} />
         <Detail label="Grid" value={formatPercent(location.grid_readiness)} />
         <Detail label="Demand" value={formatNumber(location.energy_demand)} />
         <Detail label="Traffic" value={formatNumber(location.traffic_score)} />
-      </div>
-      <p className="mt-5 text-sm leading-6 text-zinc-600">{location.recommendation_summary}</p>
-    </div>
+      </dl>
+      <p className="detail-summary">{location.recommendation_summary}</p>
+    </section>
   );
 }
 
 function Detail({ label, value }) {
   return (
-    <div className="rounded-lg bg-emerald-50 p-3">
-      <dt className="text-xs font-bold uppercase text-emerald-700">{label}</dt>
-      <dd className="mt-1 text-lg font-black text-zinc-950">{value}</dd>
+    <div className="detail-cell">
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
 function LocationTable({ locations, selectedId, onSelect }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(locations.length / LOCATION_PAGE_SIZE));
+  const startIndex = (currentPage - 1) * LOCATION_PAGE_SIZE;
+  const visibleLocations = locations.slice(startIndex, startIndex + LOCATION_PAGE_SIZE);
+  const showingStart = locations.length ? startIndex + 1 : 0;
+  const showingEnd = startIndex + visibleLocations.length;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [locations.length]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <p className="text-xs font-black uppercase text-emerald-700">Ranked Pipeline</p>
-        <h2 className="text-xl font-black text-zinc-950">Candidate Locations</h2>
+    <section className="data-panel" aria-labelledby="locations-title">
+      <div className="section-header">
+        <div>
+          <h2 id="locations-title">Candidate locations</h2>
+          <p>Ranked by score, ROI, and readiness.</p>
+        </div>
+        {locations.length ? <span className="status-text">10 per page</span> : null}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left">
-          <thead>
-            <tr className="border-b border-zinc-200 text-xs font-black uppercase text-zinc-500">
-              <th className="py-3 pr-4">Rank</th>
-              <th className="py-3 pr-4">Location</th>
-              <th className="py-3 pr-4">Score</th>
-              <th className="py-3 pr-4">Priority</th>
-              <th className="py-3 pr-4">ROI</th>
-              <th className="py-3 pr-4">Grid</th>
-            </tr>
-          </thead>
-          <tbody>
-            {locations.map((location, index) => (
-              <tr key={location.id} className={location.id === selectedId ? "bg-emerald-50" : ""}>
-                <td className="border-b border-zinc-100 py-3 pr-4 font-black">{index + 1}</td>
-                <td className="border-b border-zinc-100 py-3 pr-4">
-                  <button className="text-left font-black text-zinc-950" onClick={() => onSelect(location.id)}>
-                    {location.name}
-                  </button>
-                </td>
-                <td className="border-b border-zinc-100 py-3 pr-4">{formatNumber(location.score)}</td>
-                <td className="border-b border-zinc-100 py-3 pr-4">{location.priority}</td>
-                <td className="border-b border-zinc-100 py-3 pr-4">{formatPercent(location.roi_estimate)}</td>
-                <td className="border-b border-zinc-100 py-3 pr-4">{formatPercent(location.grid_readiness)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {locations.length ? (
+        <>
+          <div className="table-scroll">
+            <table className="locations-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Location</th>
+                  <th>Score</th>
+                  <th>Priority</th>
+                  <th>ROI</th>
+                  <th>Grid</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleLocations.map((location, index) => (
+                  <tr key={location.id} className={location.id === selectedId ? "is-selected" : ""}>
+                    <td>{startIndex + index + 1}</td>
+                    <td>
+                      <button className="location-link" type="button" onClick={() => onSelect(location.id)}>
+                        {location.name}
+                      </button>
+                    </td>
+                    <td>{formatNumber(location.score)}</td>
+                    <td>{location.priority}</td>
+                    <td>{formatPercent(location.roi_estimate)}</td>
+                    <td>{formatPercent(location.grid_readiness)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="table-footer">
+            <span>
+              Showing {showingStart}-{showingEnd} of {locations.length}
+            </span>
+            {totalPages > 1 ? (
+              <div className="pagination-actions" aria-label="Candidate locations pagination">
+                <button
+                  className="pagination-button"
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span>
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  className="pagination-button"
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <div className="empty-state compact">
+          <p>Seed demo locations or upload a CSV to populate the planning table.</p>
+        </div>
+      )}
     </section>
   );
 }
 
 function Recommendations({ locations }) {
+  const topLocations = locations.slice(0, 4);
+
   return (
-    <section className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
-      <div className="mb-4">
-        <p className="text-xs font-black uppercase text-emerald-700">AI Planning Notes</p>
-        <h2 className="text-xl font-black text-zinc-950">Recommendations</h2>
+    <section className="data-panel" aria-labelledby="recommendations-title">
+      <div className="section-header">
+        <div>
+          <h2 id="recommendations-title">Recommendations</h2>
+          <p>Current planning notes for the highest ranked sites.</p>
+        </div>
       </div>
-      <div className="grid gap-3">
-        {locations.slice(0, 4).map((location) => (
-          <article key={location.id} className="rounded-lg border border-zinc-200 p-4">
-            <h3 className="font-black text-zinc-950">{location.name}</h3>
-            <p className="mt-2 text-sm leading-6 text-zinc-600">{location.recommendation_summary}</p>
-          </article>
-        ))}
-      </div>
+
+      {topLocations.length ? (
+        <div className="recommendation-list">
+          {topLocations.map((location) => (
+            <article key={location.id} className="recommendation-item">
+              <h3>{location.name}</h3>
+              <p>{location.recommendation_summary}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state compact">
+          <p>Recommendations will appear after locations are scored.</p>
+        </div>
+      )}
     </section>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="grid min-h-[240px] place-items-center text-center">
-      <div>
-        <p className="text-sm font-black uppercase text-emerald-700">No locations loaded</p>
-        <p className="mt-2 text-sm text-zinc-600">Seed or upload location data to start planning.</p>
-      </div>
+    <div className="empty-state">
+      <h2>No locations loaded</h2>
+      <p>Seed demo locations or upload location data to start planning.</p>
     </div>
   );
 }

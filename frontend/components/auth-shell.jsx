@@ -64,10 +64,10 @@ export function AuthShell() {
 
 function SessionLoading() {
   return (
-    <main className="grid min-h-screen place-items-center px-4">
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-xs font-black uppercase text-emerald-700">Walker-Miller Energy Services</p>
-        <h1 className="mt-2 text-2xl font-black text-zinc-950">Checking secure session</h1>
+    <main className="auth-page">
+      <div className="auth-status" aria-live="polite">
+        <p className="brand-line">Walker-Miller Energy Services</p>
+        <h1>Checking secure session</h1>
       </div>
     </main>
   );
@@ -103,21 +103,21 @@ function LoginPage({ supabase }) {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center px-4 py-8">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-black uppercase text-emerald-700">Walker-Miller Energy Services</p>
-        <h1 className="mt-2 text-3xl font-black leading-tight text-zinc-950">
-          Electrification & EV Planning Agent
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-zinc-600">
-          Sign in with the account created in Supabase to view planning locations, ROI, and recommendations.
-        </p>
+    <main className="auth-page">
+      <section className="auth-layout" aria-labelledby="login-title">
+        <div className="auth-intro">
+          <p className="brand-line">Walker-Miller Energy Services</p>
+          <h1 id="login-title">Electrification & EV Planning Agent</h1>
+          <p>
+            Sign in to review candidate sites, update planning data, and refresh recommendation summaries.
+          </p>
+        </div>
 
-        <form className="mt-6 grid gap-4" onSubmit={handleSubmit}>
-          <label className="grid gap-2 text-sm font-bold text-zinc-700">
-            Email
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <label className="form-field">
+            <span>Email</span>
             <input
-              className="rounded-lg border border-zinc-300 px-3 py-3 text-zinc-950 outline-emerald-700"
+              className="text-input"
               type="email"
               autoComplete="email"
               value={email}
@@ -126,10 +126,10 @@ function LoginPage({ supabase }) {
             />
           </label>
 
-          <label className="grid gap-2 text-sm font-bold text-zinc-700">
-            Password
+          <label className="form-field">
+            <span>Password</span>
             <input
-              className="rounded-lg border border-zinc-300 px-3 py-3 text-zinc-950 outline-emerald-700"
+              className="text-input"
               type="password"
               autoComplete="current-password"
               value={password}
@@ -138,24 +138,14 @@ function LoginPage({ supabase }) {
             />
           </label>
 
-          {message ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-zinc-800">
-              {message}
-            </div>
-          ) : null}
+          {message ? <div className="notice notice-warning">{message}</div> : null}
 
-          <button
-            className="rounded-lg bg-emerald-700 px-4 py-3 text-sm font-black text-white disabled:bg-zinc-400"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? "Signing in" : "Sign In"}
+          <button className="button-primary" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in" : "Sign in"}
           </button>
-        </form>
 
-        <p className="mt-5 text-xs leading-5 text-zinc-500">
-          No registration is available in this MVP. Accounts are created by the Supabase project admin.
-        </p>
+          <p className="form-note">Accounts are created by the Supabase project admin.</p>
+        </form>
       </section>
     </main>
   );
