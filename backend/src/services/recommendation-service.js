@@ -1,60 +1,52 @@
-import OpenAI from "openai";
-import { env } from "../config/env.js";
+import { buildRecommendationBrief } from "@ev-planning/shared";
+import { AiTextService } from "./ai-text-service.js";
 
 export class RecommendationService {
   constructor() {
-    this.mode = env.openaiApiKey ? "openai" : "fallback";
-    this.client = env.openaiApiKey ? new OpenAI({ apiKey: env.openaiApiKey }) : null;
+    this.ai = new AiTextService();
+    this.mode = this.ai.isConfigured ? "ai" : "fallback";
   }
 
   async summarize(location) {
-    if (!this.client) {
-      return buildFallbackSummary(location);
+    const deterministicBrief = buildRecommendationBrief(location);
+
+    if (!this.ai.isConfigured) {
+      return deterministicBrief;
     }
 
     try {
-      const response = await this.client.responses.create({
-        model: env.openaiModel,
-        instructions:
-          "You write concise EV infrastructure planning recommendations for utility and program leadership. Keep the output to one executive-ready sentence.",
-        input: buildPrompt(location),
-        max_output_tokens: 120
+      return await this.ai.generateText({
+        instructions: [
+          "You write concise EV infrastructure planning recommendations for utility and program leadership.",
+          "Use only the supplied deterministic recommendation and location metrics.",
+          "Do not invent utility capacity, land ownership, incentives, charger counts, permitting, or construction facts.",
+          "Keep the output to two short executive-ready sentences."
+        ].join(" "),
+        input: buildPrompt(location, deterministicBrief),
+        maxTokens: 120
       });
-
-      return normalizeSummary(response.output_text || buildFallbackSummary(location));
-    } catch (error) {
-      console.warn("OpenAI recommendation failed; using deterministic fallback.", error);
-      return buildFallbackSummary(location);
+    } catch {
+      return deterministicBrief;
     }
   }
 }
 
-function buildPrompt(location) {
+function buildPrompt(location, deterministicBrief) {
+  const analysis = location.analysis || {};
+
   return [
+    `Deterministic recommendation: ${deterministicBrief}`,
     `Location: ${location.name}`,
     `Score: ${location.score}`,
     `Priority: ${location.priority}`,
+    `Rank: ${analysis.rank || "Not available"}`,
     `Population density: ${location.population_density}`,
     `Energy demand: ${location.energy_demand}`,
     `Traffic score: ${location.traffic_score}`,
     `Grid readiness: ${location.grid_readiness}`,
     `EV adoption score: ${location.ev_adoption_score}`,
-    `ROI estimate: ${location.roi_estimate}%`
+    `ROI estimate: ${location.roi_estimate}%`,
+    `Risk flags: ${(analysis.risk_flags || []).map((risk) => risk.message).join("; ") || "None flagged"}`,
+    `Next steps: ${(analysis.next_steps || []).join("; ") || "Confirm site feasibility before committing capital"}`
   ].join("\n");
-}
-
-function buildFallbackSummary(location) {
-  if (location.priority === "High") {
-    return `${location.name} is a strong near-term charger candidate because demand, traffic, and grid readiness support a focused investment case.`;
-  }
-
-  if (location.priority === "Medium") {
-    return `${location.name} should stay in the planning pipeline while utility costs, site control, and adoption signals are refined.`;
-  }
-
-  return `${location.name} is best monitored until demand, adoption, or grid readiness improves enough to support deployment.`;
-}
-
-function normalizeSummary(value) {
-  return String(value).trim().replace(/\s+/g, " ");
 }

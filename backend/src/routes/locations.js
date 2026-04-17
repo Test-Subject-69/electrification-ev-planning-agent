@@ -23,6 +23,23 @@ export function createLocationRouter({ repository, recommendationService }) {
     response.json({ locations: await service.regenerateRecommendations() });
   }));
 
+  router.post("/compare", asyncHandler(async (request, response) => {
+    const locationIds = getLocationIdsFromBody(request.body);
+
+    if (locationIds.length < 2 || locationIds.length > 5) {
+      response.status(400).json({ error: "Compare requires 2 to 5 location IDs." });
+      return;
+    }
+
+    const comparison = await service.compare(locationIds);
+    if (!comparison) {
+      response.status(404).json({ error: "One or more locations were not found." });
+      return;
+    }
+
+    response.json(comparison);
+  }));
+
   return router;
 }
 
@@ -46,4 +63,12 @@ function getLocationsFromBody(body) {
   }
 
   throw new Error("Upload requires a locations array or csv string.");
+}
+
+function getLocationIdsFromBody(body) {
+  if (!Array.isArray(body?.locationIds)) {
+    return [];
+  }
+
+  return [...new Set(body.locationIds.map((locationId) => String(locationId || "").trim()).filter(Boolean))];
 }

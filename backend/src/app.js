@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
+import { createChatRouter } from "./routes/chat.js";
 import { createLocationRouter } from "./routes/locations.js";
 import { createSetupRouter } from "./routes/setup.js";
 import { createRepository } from "./repositories/create-repository.js";
@@ -29,6 +30,7 @@ export function createApp() {
   });
 
   app.use("/api/setup", createSetupRouter({ repository, recommendationService }));
+  app.use("/api/chat", requireSupabaseAuth, createChatRouter({ repository }));
   app.use("/api/locations", requireSupabaseAuth, createLocationRouter({ repository, recommendationService }));
 
   app.use((error, _request, response, _next) => {

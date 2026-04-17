@@ -1,4 +1,4 @@
-const SCORE_WEIGHTS = {
+export const SCORE_WEIGHTS = {
   populationDensity: 0.18,
   energyDemand: 0.24,
   traffic: 0.22,
@@ -8,6 +8,43 @@ const SCORE_WEIGHTS = {
 
 const POPULATION_DENSITY_MAX = 12000;
 const ENERGY_DEMAND_MAX = 100;
+const SCORE_FACTORS = [
+  {
+    key: "population_density",
+    label: "Population density",
+    weight: SCORE_WEIGHTS.populationDensity,
+    getRawValue: (location) => location.population_density,
+    getNormalizedValue: (location) => normalize(location.population_density, 0, POPULATION_DENSITY_MAX)
+  },
+  {
+    key: "energy_demand",
+    label: "Energy demand",
+    weight: SCORE_WEIGHTS.energyDemand,
+    getRawValue: (location) => location.energy_demand,
+    getNormalizedValue: (location) => normalize(location.energy_demand, 0, ENERGY_DEMAND_MAX)
+  },
+  {
+    key: "traffic_score",
+    label: "Traffic",
+    weight: SCORE_WEIGHTS.traffic,
+    getRawValue: (location) => location.traffic_score,
+    getNormalizedValue: (location) => location.traffic_score
+  },
+  {
+    key: "grid_readiness",
+    label: "Grid readiness",
+    weight: SCORE_WEIGHTS.gridReadiness,
+    getRawValue: (location) => location.grid_readiness,
+    getNormalizedValue: (location) => location.grid_readiness
+  },
+  {
+    key: "ev_adoption_score",
+    label: "EV adoption",
+    weight: SCORE_WEIGHTS.evAdoption,
+    getRawValue: (location) => location.ev_adoption_score,
+    getNormalizedValue: (location) => location.ev_adoption_score
+  }
+];
 
 export function normalizeLocationInput(input) {
   const id = input.id || slugify(input.name);
@@ -42,17 +79,37 @@ export function enrichLocation(input) {
 }
 
 export function calculateLocationScore(location) {
-  const populationDensityScore = normalize(location.population_density, 0, POPULATION_DENSITY_MAX);
-  const energyDemandScore = normalize(location.energy_demand, 0, ENERGY_DEMAND_MAX);
+  const normalizedLocation = normalizeLocationInput(location);
 
-  const score =
-    populationDensityScore * SCORE_WEIGHTS.populationDensity +
-    energyDemandScore * SCORE_WEIGHTS.energyDemand +
-    location.traffic_score * SCORE_WEIGHTS.traffic +
-    location.grid_readiness * SCORE_WEIGHTS.gridReadiness +
-    location.ev_adoption_score * SCORE_WEIGHTS.evAdoption;
+  return calculateScoreFromLocation(normalizedLocation);
+}
 
-  return round(score);
+export function getScoreBreakdown(input) {
+  const location = normalizeLocationInput(input);
+  const score = calculateScoreFromLocation(location);
+  const breakdown = SCORE_FACTORS.map((factor) => {
+    const normalizedScore = round(factor.getNormalizedValue(location));
+
+    return {
+      key: factor.key,
+      label: factor.label,
+      raw_value: factor.getRawValue(location),
+      normalized_score: normalizedScore,
+      weight: factor.weight,
+      contribution: round(normalizedScore * factor.weight)
+    };
+  });
+
+  const contributionTotal = round(breakdown.reduce((sum, factor) => sum + factor.contribution, 0));
+  const roundingDelta = round(score - contributionTotal);
+  if (roundingDelta !== 0 && breakdown.length) {
+    breakdown[0] = {
+      ...breakdown[0],
+      contribution: round(breakdown[0].contribution + roundingDelta)
+    };
+  }
+
+  return breakdown;
 }
 
 export function estimateLocationRoi(location, score) {
@@ -81,6 +138,14 @@ function getPriority(score) {
   }
 
   return "Watch";
+}
+
+function calculateScoreFromLocation(location) {
+  const score = SCORE_FACTORS.reduce((sum, factor) => {
+    return sum + factor.getNormalizedValue(location) * factor.weight;
+  }, 0);
+
+  return round(score);
 }
 
 function normalize(value, min, max) {

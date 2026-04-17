@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  askLocationQuestion,
+  compareLocations,
   fetchLocations,
   regenerateRecommendations,
   seedLocations,
@@ -15,9 +17,15 @@ const LOCATION_PAGE_SIZE = 10;
 export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onSignOut }) {
   const [locations, setLocations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
+  const [compareIds, setCompareIds] = useState([]);
+  const [comparison, setComparison] = useState(null);
+  const [isComparing, setIsComparing] = useState(false);
+  const [compareError, setCompareError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [mapAskLocationId, setMapAskLocationId] = useState("");
   const uploadInputRef = useRef(null);
+  const chatSectionRef = useRef(null);
 
   const selectedLocation = useMemo(() => {
     return locations.find((location) => location.id === selectedId) || locations[0];
@@ -42,11 +50,57 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
     loadLocations();
   }, [loadLocations]);
 
+  useEffect(() => {
+    setCompareIds((current) => {
+      const validIds = current.filter((locationId) => locations.some((location) => location.id === locationId));
+      return validIds.length === current.length ? current : validIds;
+    });
+  }, [locations]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadComparison() {
+      if (compareIds.length < 2) {
+        setComparison(null);
+        setCompareError("");
+        setIsComparing(false);
+        return;
+      }
+
+      setIsComparing(true);
+      setCompareError("");
+
+      try {
+        const payload = await compareLocations(compareIds, accessToken);
+        if (isActive) {
+          setComparison(payload);
+        }
+      } catch (error) {
+        if (isActive) {
+          setComparison(null);
+          setCompareError(getErrorMessage(error));
+        }
+      } finally {
+        if (isActive) {
+          setIsComparing(false);
+        }
+      }
+    }
+
+    loadComparison();
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessToken, compareIds]);
+
   async function handleSeed() {
     await runAction(async () => {
       const payload = await seedLocations(accessToken);
       setLocations(payload.locations || []);
       setSelectedId(payload.locations?.[0]?.id || "");
+      setMapAskLocationId("");
       setMessage("Demo locations scored and saved without removing uploaded locations.");
     });
   }
@@ -62,6 +116,7 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
       const payload = await uploadLocationsCsv(csv, accessToken);
       setLocations(payload.locations || []);
       setSelectedId(payload.locations?.[0]?.id || "");
+      setMapAskLocationId("");
       setMessage("Uploaded locations scored and saved.");
     });
 
@@ -73,6 +128,38 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
       const payload = await regenerateRecommendations(accessToken);
       setLocations(payload.locations || []);
       setMessage("Recommendation summaries refreshed.");
+    });
+  }
+
+  function handleCompareToggle(locationId) {
+    if (!compareIds.includes(locationId) && compareIds.length >= 5) {
+      setMessage("Compare up to 5 locations at a time.");
+      return;
+    }
+
+    setCompareIds((current) => {
+      if (current.includes(locationId)) {
+        return current.filter((id) => id !== locationId);
+      }
+
+      return [...current, locationId];
+    });
+  }
+
+  function handleMapSelect(locationId) {
+    setSelectedId(locationId);
+    setMapAskLocationId(locationId);
+  }
+
+  function handleTableSelect(locationId) {
+    setSelectedId(locationId);
+    setMapAskLocationId("");
+  }
+
+  function handleAskForMore() {
+    chatSectionRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "start"
     });
   }
 
@@ -139,8 +226,8 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
           <SummaryItem label="Average ROI" value={formatPercent(average(locations.map((location) => location.roi_estimate)))} />
         </section>
 
-        <section className="workspace-grid">
-          <section className="map-panel" aria-labelledby="map-title">
+        <div className="quadrant-grid">
+          <section className="quadrant-tl map-panel" aria-labelledby="map-title">
             <div className="section-header">
               <div>
                 <h2 id="map-title">Scored location map</h2>
@@ -148,18 +235,50 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
               </div>
               <span className="status-text">{isLoading ? "Loading" : "Ready"}</span>
             </div>
-            <MapView locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
+            <MapView locations={locations} selectedId={selectedLocation?.id} onSelect={handleMapSelect} />
+            {selectedLocation && mapAskLocationId === selectedLocation.id ? (
+              <button className="map-ask-button" type="button" onClick={handleAskForMore}>
+                Ask for more
+              </button>
+            ) : null}
           </section>
 
-          <aside className="detail-panel" aria-label="Selected location details">
-            {selectedLocation ? <LocationDetail location={selectedLocation} /> : <EmptyState />}
+          <aside className="quadrant-tr detail-panel" aria-label="Selected location details">
+            {selectedLocation ? (
+              <LocationDetail location={selectedLocation} accessToken={accessToken} />
+            ) : (
+              <EmptyState />
+            )}
           </aside>
-        </section>
 
-        <section className="content-grid">
-          <LocationTable locations={locations} selectedId={selectedLocation?.id} onSelect={setSelectedId} />
-          <Recommendations locations={locations} />
-        </section>
+          <div className="quadrant-bl">
+            <LocationTable
+              locations={locations}
+              selectedId={selectedLocation?.id}
+              compareIds={compareIds}
+              onSelect={handleTableSelect}
+              onCompareToggle={handleCompareToggle}
+            />
+            <ComparisonPanel
+              comparison={comparison}
+              compareIds={compareIds}
+              locations={locations}
+              isLoading={isComparing}
+              error={compareError}
+              onClear={() => setCompareIds([])}
+            />
+          </div>
+
+          <div className="quadrant-br">
+            <Recommendations locations={locations} />
+          </div>
+        </div>
+
+        {selectedLocation ? (
+          <section ref={chatSectionRef} className="chat-section" aria-label="EV planning assistant">
+            <LocationChatPanel location={selectedLocation} accessToken={accessToken} />
+          </section>
+        ) : null}
       </div>
     </main>
   );
@@ -174,20 +293,25 @@ function SummaryItem({ label, value }) {
   );
 }
 
-function LocationDetail({ location }) {
+function LocationDetail({ location, accessToken }) {
   return (
     <section className="location-detail">
-      <p className="context-label">Selected location</p>
-      <h2>{location.name}</h2>
+      <div>
+        <p className="context-label">Selected location</p>
+        <h2>{location.name}</h2>
+      </div>
       <dl className="detail-grid">
         <Detail label="Score" value={formatNumber(location.score)} />
-        <Detail label="Priority" value={location.priority} />
+        <Detail label="Priority" value={<PriorityBadge priority={location.priority} />} />
         <Detail label="ROI" value={formatPercent(location.roi_estimate)} />
         <Detail label="Grid" value={formatPercent(location.grid_readiness)} />
         <Detail label="Demand" value={formatNumber(location.energy_demand)} />
         <Detail label="Traffic" value={formatNumber(location.traffic_score)} />
       </dl>
       <p className="detail-summary">{location.recommendation_summary}</p>
+      <ScoreBreakdown breakdown={location.analysis?.score_breakdown || []} />
+      <RiskFlagList risks={location.analysis?.risk_flags || []} />
+      <NextStepList steps={location.analysis?.next_steps || []} />
     </section>
   );
 }
@@ -201,11 +325,289 @@ function Detail({ label, value }) {
   );
 }
 
-function LocationTable({ locations, selectedId, onSelect }) {
+function ScoreBreakdown({ breakdown }) {
+  if (!breakdown.length) {
+    return null;
+  }
+
+  return (
+    <section className="analysis-section" aria-label="Score breakdown">
+      <h3>Score breakdown</h3>
+      <div className="score-breakdown">
+        {breakdown.map((factor) => (
+          <div className="score-breakdown-row" key={factor.key}>
+            <span>{factor.label}</span>
+            <strong>{formatNumber(factor.contribution)}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RiskFlagList({ risks }) {
+  return (
+    <section className="analysis-section" aria-label="Risk flags">
+      <h3>Risk flags</h3>
+      {risks.length ? (
+        <ul className="plain-list">
+          {risks.map((risk) => (
+            <li key={risk.key}>
+              <strong>{risk.severity}</strong>
+              <span>{risk.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="analysis-empty">No major scoring risks are currently flagged.</p>
+      )}
+    </section>
+  );
+}
+
+function NextStepList({ steps }) {
+  if (!steps.length) {
+    return null;
+  }
+
+  return (
+    <section className="analysis-section" aria-label="Recommended next steps">
+      <h3>Next steps</h3>
+      <ol className="numbered-list">
+        {steps.map((step) => (
+          <li key={step}>{step}</li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+const QUICK_CHAT_PROMPTS = [
+  "Why is this area good?",
+  "What are the risks?",
+  "What should we do next?"
+];
+
+function LocationChatPanel({ location, accessToken }) {
+  const [messagesByLocationId, setMessagesByLocationId] = useState({});
+  const [question, setQuestion] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
+  const [error, setError] = useState("");
+  const messages = messagesByLocationId[location.id] || [];
+
+  useEffect(() => {
+    setQuestion("");
+    setError("");
+  }, [location.id]);
+
+  async function handleAsk(nextQuestion) {
+    const text = String(nextQuestion || question).trim();
+    if (!text || isAsking) {
+      return;
+    }
+
+    const locationId = location.id;
+    appendChatMessage(locationId, {
+      id: createChatMessageId("user"),
+      role: "user",
+      text
+    });
+    setQuestion("");
+    setError("");
+    setIsAsking(true);
+
+    try {
+      const payload = await askLocationQuestion(location, text, accessToken);
+      appendChatMessage(locationId, {
+        id: createChatMessageId("assistant"),
+        role: "assistant",
+        text: payload.answer || "No explanation was returned.",
+        sources: payload.sources || [],
+        recommendedFollowUp: payload.recommended_follow_up || ""
+      });
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setIsAsking(false);
+    }
+  }
+
+  function appendChatMessage(locationId, message) {
+    setMessagesByLocationId((current) => ({
+      ...current,
+      [locationId]: [...(current[locationId] || []), message]
+    }));
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    handleAsk(question);
+  }
+
+  return (
+    <section className="location-chat" aria-labelledby="location-chat-title">
+      <div className="chat-header-bar">
+        <div className="chat-heading">
+          <h3 id="location-chat-title">EV planning assistant</h3>
+        </div>
+
+        <div className="chat-quick-actions" aria-label="Quick EV planning questions">
+          {QUICK_CHAT_PROMPTS.map((prompt) => (
+            <button
+              className="chat-chip"
+              type="button"
+              key={prompt}
+              onClick={() => handleAsk(prompt)}
+              disabled={isAsking}
+            >
+              {prompt}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="chat-messages" aria-live="polite">
+        {messages.length ? (
+          messages.map((message) => (
+            <article key={message.id} className={`chat-message ${message.role}`}>
+              <p>{message.text}</p>
+              {message.sources?.length ? (
+                <span>Sources: {message.sources.join(", ")}</span>
+              ) : null}
+              {message.recommendedFollowUp ? (
+                <button
+                  className="chat-follow-up"
+                  type="button"
+                  onClick={() => handleAsk(message.recommendedFollowUp)}
+                  disabled={isAsking}
+                >
+                  Suggested: {message.recommendedFollowUp}
+                </button>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <div className="chat-empty">
+            <p>Start with a quick question to get an executive-ready explanation for this area.</p>
+          </div>
+        )}
+        {isAsking ? (
+          <div className="chat-message assistant">
+            <p>Reviewing location metrics and portfolio context...</p>
+          </div>
+        ) : null}
+      </div>
+
+      {error ? <div className="notice notice-warning">{error}</div> : null}
+
+      <form className="chat-form" onSubmit={handleSubmit}>
+        <input
+          className="text-input"
+          type="text"
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="Ask about this location"
+          disabled={isAsking}
+        />
+        <button className="button-primary" type="submit" disabled={isAsking || !question.trim()}>
+          Ask question
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function ComparisonPanel({ comparison, compareIds, locations, isLoading, error, onClear }) {
+  if (!compareIds.length) {
+    return null;
+  }
+
+  const selectedNames = compareIds
+    .map((locationId) => locations.find((location) => location.id === locationId)?.name)
+    .filter(Boolean);
+
+  return (
+    <section className="data-panel comparison-panel" aria-labelledby="comparison-title">
+      <div className="section-header">
+        <div>
+          <h2 id="comparison-title">Location comparison</h2>
+          <p>{selectedNames.length ? selectedNames.join(", ") : "Select locations to compare."}</p>
+        </div>
+        <button className="button-secondary" type="button" onClick={onClear}>
+          Clear comparison
+        </button>
+      </div>
+
+      {compareIds.length < 2 ? (
+        <div className="empty-state compact">
+          <p>Select one more location to compare planning strengths, risks, and next steps.</p>
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className="empty-state compact">
+          <p>Comparing selected locations...</p>
+        </div>
+      ) : null}
+
+      {error ? <div className="notice notice-warning comparison-notice">{error}</div> : null}
+
+      {!isLoading && comparison?.selected_locations?.length ? (
+        <div className="comparison-content">
+          <div className="comparison-summary">
+            <strong>Recommended option: {comparison.recommended_winner.location_name}</strong>
+            <p>{comparison.summary}</p>
+          </div>
+
+          <div className="table-scroll">
+            <table className="compare-table">
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Score</th>
+                  <th>ROI</th>
+                  <th>Grid</th>
+                  <th>Demand</th>
+                  <th>Traffic</th>
+                  <th>Risks</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.selected_locations.map((location) => (
+                  <tr key={location.id}>
+                    <td>{location.name}</td>
+                    <td>{formatNumber(location.score)}</td>
+                    <td>{formatPercent(location.roi_estimate)}</td>
+                    <td>{formatPercent(location.grid_readiness)}</td>
+                    <td>{formatNumber(location.energy_demand)}</td>
+                    <td>{formatNumber(location.traffic_score)}</td>
+                    <td>{location.risk_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="best-metrics" aria-label="Best location by metric">
+            {Object.values(comparison.best_by_metric || {}).map((metric) => (
+              <div className="best-metric" key={metric.label}>
+                <span>{metric.label}</span>
+                <strong>{metric.location_name}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function LocationTable({ locations, selectedId, compareIds, onSelect, onCompareToggle }) {
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(locations.length / LOCATION_PAGE_SIZE));
   const startIndex = (currentPage - 1) * LOCATION_PAGE_SIZE;
   const visibleLocations = locations.slice(startIndex, startIndex + LOCATION_PAGE_SIZE);
+  const placeholderRows = Math.max(0, LOCATION_PAGE_SIZE - visibleLocations.length);
   const showingStart = locations.length ? startIndex + 1 : 0;
   const showingEnd = startIndex + visibleLocations.length;
 
@@ -226,7 +628,7 @@ function LocationTable({ locations, selectedId, onSelect }) {
           <h2 id="locations-title">Candidate locations</h2>
           <p>Ranked by score, ROI, and readiness.</p>
         </div>
-        {locations.length ? <span className="status-text">10 per page</span> : null}
+        {locations.length ? <span className="status-text">10 per page - {compareIds.length}/5 comparing</span> : null}
       </div>
 
       {locations.length ? (
@@ -235,6 +637,7 @@ function LocationTable({ locations, selectedId, onSelect }) {
             <table className="locations-table">
               <thead>
                 <tr>
+                  <th>Compare</th>
                   <th>Rank</th>
                   <th>Location</th>
                   <th>Score</th>
@@ -246,6 +649,16 @@ function LocationTable({ locations, selectedId, onSelect }) {
               <tbody>
                 {visibleLocations.map((location, index) => (
                   <tr key={location.id} className={location.id === selectedId ? "is-selected" : ""}>
+                    <td>
+                      <input
+                        className="compare-checkbox"
+                        type="checkbox"
+                        checked={compareIds.includes(location.id)}
+                        onChange={() => onCompareToggle(location.id)}
+                        aria-label={`Compare ${location.name}`}
+                        disabled={!compareIds.includes(location.id) && compareIds.length >= 5}
+                      />
+                    </td>
                     <td>{startIndex + index + 1}</td>
                     <td>
                       <button className="location-link" type="button" onClick={() => onSelect(location.id)}>
@@ -253,9 +666,20 @@ function LocationTable({ locations, selectedId, onSelect }) {
                       </button>
                     </td>
                     <td>{formatNumber(location.score)}</td>
-                    <td>{location.priority}</td>
+                    <td><PriorityBadge priority={location.priority} /></td>
                     <td>{formatPercent(location.roi_estimate)}</td>
                     <td>{formatPercent(location.grid_readiness)}</td>
+                  </tr>
+                ))}
+                {Array.from({ length: placeholderRows }).map((_, index) => (
+                  <tr key={`placeholder-${index}`} className="is-placeholder" aria-hidden="true">
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
+                    <td>&nbsp;</td>
                   </tr>
                 ))}
               </tbody>
@@ -317,7 +741,12 @@ function Recommendations({ locations }) {
           {topLocations.map((location) => (
             <article key={location.id} className="recommendation-item">
               <h3>{location.name}</h3>
-              <p>{location.recommendation_summary}</p>
+              <p>{location.analysis?.recommendation_brief || location.recommendation_summary}</p>
+              <div className="recommendation-details">
+                <span className="rec-strength">Strength: {location.analysis?.strengths?.[0]?.message || "Balanced planning profile"}</span>
+                <span className="rec-risk">Risk: {location.analysis?.risk_flags?.[0]?.message || "No major scoring risk flagged"}</span>
+                <span className="rec-next">Next: {location.analysis?.next_steps?.[0] || "Confirm site feasibility before committing capital."}</span>
+              </div>
             </article>
           ))}
         </div>
@@ -330,6 +759,11 @@ function Recommendations({ locations }) {
   );
 }
 
+function PriorityBadge({ priority }) {
+  const level = (priority || "Watch").toLowerCase();
+  return <span className={`priority-badge ${level}`}>{priority || "Watch"}</span>;
+}
+
 function EmptyState() {
   return (
     <div className="empty-state">
@@ -337,6 +771,10 @@ function EmptyState() {
       <p>Seed demo locations or upload location data to start planning.</p>
     </div>
   );
+}
+
+function createChatMessageId(role) {
+  return `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function average(values) {
@@ -350,4 +788,8 @@ function average(values) {
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : "Unable to complete the request.";
+}
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

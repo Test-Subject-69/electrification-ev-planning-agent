@@ -1,4 +1,4 @@
-import { enrichLocation, normalizeLocationInput, sampleLocations } from "@ev-planning/shared";
+import { analyzeLocations, compareLocations, normalizeLocationInput, sampleLocations } from "@ev-planning/shared";
 
 export class LocationService {
   constructor({ repository, recommendationService }) {
@@ -8,7 +8,7 @@ export class LocationService {
 
   async list() {
     const locations = await this.repository.list();
-    return locations.map(enrichLocation).sort(sortByScore);
+    return analyzeLocations(locations);
   }
 
   async seed() {
@@ -30,8 +30,18 @@ export class LocationService {
     return this.list();
   }
 
+  async compare(locationIds) {
+    const result = compareLocations(await this.repository.list(), locationIds);
+
+    if (result.missingIds?.length) {
+      return null;
+    }
+
+    return result;
+  }
+
   async #scoreAndSummarize(rawLocations) {
-    const enriched = rawLocations.map((location) => enrichLocation(normalizeLocationInput(location)));
+    const enriched = analyzeLocations(rawLocations.map((location) => normalizeLocationInput(location)));
 
     return Promise.all(
       enriched.map(async (location) => ({
@@ -57,8 +67,4 @@ function toDatabaseRecord(location) {
     recommendation_summary: location.recommendation_summary,
     created_at: location.created_at
   };
-}
-
-function sortByScore(left, right) {
-  return right.score - left.score;
 }
