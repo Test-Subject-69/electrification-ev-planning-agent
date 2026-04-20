@@ -10,8 +10,8 @@ import {
   uploadLocationsCsv
 } from "../lib/api.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
-import { BrandLogo } from "./brand-logo.jsx";
 import { MapView } from "./map-view.jsx";
+import { SideNav } from "./side-nav.jsx";
 
 const LOCATION_PAGE_SIZE = 10;
 
@@ -26,8 +26,9 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
   const [isGrayMap, setIsGrayMap] = useState(false);
   const [message, setMessage] = useState("");
   const [mapAskLocationId, setMapAskLocationId] = useState("");
+  const [activeView, setActiveView] = useState("overview");
+  const [chatMessagesByLocationId, setChatMessagesByLocationId] = useState({});
   const uploadInputRef = useRef(null);
-  const chatSectionRef = useRef(null);
 
   const selectedLocation = useMemo(() => {
     return locations.find((location) => location.id === selectedId) || locations[0];
@@ -159,10 +160,7 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
   }
 
   function handleAskForMore() {
-    chatSectionRef.current?.scrollIntoView({
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-      block: "start"
-    });
+    setActiveView("assistant");
   }
 
   async function runAction(action) {
@@ -178,134 +176,250 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
     }
   }
 
-  return (
-    <main className="app-shell">
-      <header className="app-header">
-        <div className="app-title">
-          <BrandLogo />
-          <div className="app-product-name">
-            <h1>Electrification & EV Planning Agent</h1>
-            {currentUserEmail ? <p className="app-user">Signed in as {currentUserEmail}</p> : null}
-          </div>
-        </div>
+  const viewTitle = VIEW_TITLES[activeView] || "Overview";
 
-        <div className="app-actions" aria-label="Planning actions">
-          <button className="button-primary" type="button" onClick={handleSeed} disabled={isLoading}>
-            Add demo locations
-          </button>
-          <button
-            className="button-secondary"
-            type="button"
-            onClick={() => uploadInputRef.current?.click()}
-            disabled={isLoading}
-          >
-            Upload CSV
-          </button>
-          <input
-            ref={uploadInputRef}
-            className="visually-hidden"
-            type="file"
-            accept=".csv"
-            onChange={handleUpload}
-            disabled={isLoading}
-          />
-          <button className="button-secondary" type="button" onClick={handleRegenerate} disabled={isLoading}>
-            Refresh summaries
-          </button>
-          {onSignOut ? (
-            <button className="button-secondary" type="button" onClick={onSignOut}>
-              Sign out
+  return (
+    <div className="app-shell">
+      <SideNav
+        activeView={activeView}
+        onChange={setActiveView}
+        currentUserEmail={currentUserEmail}
+        onSignOut={onSignOut}
+      />
+
+      <div className="app-main">
+        <header className="app-header">
+          <div className="app-product-name">
+            <h1>{viewTitle}</h1>
+            <p>Electrification & EV Planning Agent</p>
+          </div>
+
+          <div className="app-actions" aria-label="Planning actions">
+            <button className="button-primary" type="button" onClick={handleSeed} disabled={isLoading}>
+              Add demo locations
             </button>
+            <button
+              className="button-secondary"
+              type="button"
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={isLoading}
+            >
+              Upload CSV
+            </button>
+            <input
+              ref={uploadInputRef}
+              className="visually-hidden"
+              type="file"
+              accept=".csv"
+              onChange={handleUpload}
+              disabled={isLoading}
+            />
+            <button className="button-secondary" type="button" onClick={handleRegenerate} disabled={isLoading}>
+              Refresh summaries
+            </button>
+          </div>
+        </header>
+
+        <div className="app-content">
+          {message ? <div className="notice notice-warning">{message}</div> : null}
+
+          {activeView === "overview" ? (
+            <OverviewView
+              locations={locations}
+              selectedLocation={selectedLocation}
+              isLoading={isLoading}
+              isGrayMap={isGrayMap}
+              onToggleGrayMap={() => setIsGrayMap((current) => !current)}
+              mapAskLocationId={mapAskLocationId}
+              onMapSelect={handleMapSelect}
+              onAskForMore={handleAskForMore}
+              accessToken={accessToken}
+            />
+          ) : null}
+
+          {activeView === "compare" ? (
+            <CompareView
+              locations={locations}
+              selectedLocation={selectedLocation}
+              compareIds={compareIds}
+              comparison={comparison}
+              isComparing={isComparing}
+              compareError={compareError}
+              onTableSelect={handleTableSelect}
+              onCompareToggle={handleCompareToggle}
+              onClearCompare={() => setCompareIds([])}
+            />
+          ) : null}
+
+          {activeView === "assistant" ? (
+            <AssistantView
+              selectedLocation={selectedLocation}
+              locations={locations}
+              accessToken={accessToken}
+              messagesByLocationId={chatMessagesByLocationId}
+              setMessagesByLocationId={setChatMessagesByLocationId}
+              onSelectLocation={(id) => setSelectedId(id)}
+            />
           ) : null}
         </div>
-      </header>
+      </div>
+    </div>
+  );
+}
 
-      <div className="app-content">
-        {message ? <div className="notice notice-warning">{message}</div> : null}
+const VIEW_TITLES = {
+  overview: "Overview",
+  compare: "Compare",
+  assistant: "Assistant"
+};
 
-        <section className="summary-strip" aria-label="Planning summary">
-          <SummaryItem label="Locations" value={locations.length} />
-          <SummaryItem label="Average score" value={formatNumber(average(locations.map((location) => location.score)))} />
-          <SummaryItem label="High priority" value={locations.filter((location) => location.priority === "High").length} />
-          <SummaryItem label="Average ROI" value={formatPercent(average(locations.map((location) => location.roi_estimate)))} />
+function OverviewView({
+  locations,
+  selectedLocation,
+  isLoading,
+  isGrayMap,
+  onToggleGrayMap,
+  mapAskLocationId,
+  onMapSelect,
+  onAskForMore,
+  accessToken
+}) {
+  return (
+    <>
+      <section className="summary-strip" aria-label="Planning summary">
+        <SummaryItem label="Locations" value={locations.length} />
+        <SummaryItem label="Average score" value={formatNumber(average(locations.map((location) => location.score)))} />
+        <SummaryItem label="High priority" value={locations.filter((location) => location.priority === "High").length} />
+        <SummaryItem label="Average ROI" value={formatPercent(average(locations.map((location) => location.roi_estimate)))} />
+      </section>
+
+      <div className="overview-grid">
+        <section className="map-panel" aria-labelledby="map-title">
+          <div className="section-header">
+            <div>
+              <h2 id="map-title">Scored location map</h2>
+              <p>{locations.length ? `${locations.length} candidate locations` : "No locations loaded"}</p>
+            </div>
+            <div className="map-header-actions">
+              <button
+                className="map-mode-switch"
+                type="button"
+                role="switch"
+                aria-checked={isGrayMap}
+                aria-label="Toggle gray map"
+                onClick={onToggleGrayMap}
+              >
+                <span className="map-mode-copy">Gray map</span>
+                <span className="map-mode-track" aria-hidden="true">
+                  <span className="map-mode-thumb" />
+                </span>
+                <span className="map-mode-state">{isGrayMap ? "On" : "Off"}</span>
+              </button>
+              {isLoading && <span className="status-text">Loading</span>}
+            </div>
+          </div>
+          <MapView
+            locations={locations}
+            selectedId={selectedLocation?.id}
+            onSelect={onMapSelect}
+            isGrayMap={isGrayMap}
+          />
+          {selectedLocation && mapAskLocationId === selectedLocation.id ? (
+            <button className="map-ask-button" type="button" onClick={onAskForMore}>
+              Ask for more
+            </button>
+          ) : null}
         </section>
 
-        <div className="quadrant-grid">
-          <section className="quadrant-tl map-panel" aria-labelledby="map-title">
-            <div className="section-header">
-              <div>
-                <h2 id="map-title">Scored location map</h2>
-                <p>{locations.length ? `${locations.length} candidate locations` : "No locations loaded"}</p>
-              </div>
-              <div className="map-header-actions">
-                <button
-                  className="map-mode-switch"
-                  type="button"
-                  role="switch"
-                  aria-checked={isGrayMap}
-                  aria-label="Toggle gray map"
-                  onClick={() => setIsGrayMap((current) => !current)}
-                >
-                  <span className="map-mode-copy">Gray map</span>
-                  <span className="map-mode-track" aria-hidden="true">
-                    <span className="map-mode-thumb" />
-                  </span>
-                  <span className="map-mode-state">{isGrayMap ? "On" : "Off"}</span>
-                </button>
-                {isLoading && <span className="status-text">Loading</span>}
-              </div>
-            </div>
-            <MapView
-              locations={locations}
-              selectedId={selectedLocation?.id}
-              onSelect={handleMapSelect}
-              isGrayMap={isGrayMap}
-            />
-            {selectedLocation && mapAskLocationId === selectedLocation.id ? (
-              <button className="map-ask-button" type="button" onClick={handleAskForMore}>
-                Ask for more
-              </button>
-            ) : null}
-          </section>
-
-          <aside className="quadrant-tr detail-panel" aria-label="Selected location details">
-            {selectedLocation ? (
-              <LocationDetail location={selectedLocation} accessToken={accessToken} />
-            ) : (
-              <EmptyState />
-            )}
-          </aside>
-
-          <div className="quadrant-bl">
-            <LocationTable
-              locations={locations}
-              selectedId={selectedLocation?.id}
-              compareIds={compareIds}
-              onSelect={handleTableSelect}
-              onCompareToggle={handleCompareToggle}
-            />
-            <ComparisonPanel
-              comparison={comparison}
-              compareIds={compareIds}
-              locations={locations}
-              isLoading={isComparing}
-              error={compareError}
-              onClear={() => setCompareIds([])}
-            />
-          </div>
-
-          <div className="quadrant-br">
-            <Recommendations locations={locations} />
-          </div>
-        </div>
-
-        {selectedLocation ? (
-          <section ref={chatSectionRef} className="chat-section" aria-label="EV planning assistant">
-            <LocationChatPanel location={selectedLocation} accessToken={accessToken} />
-          </section>
-        ) : null}
+        <aside className="detail-panel" aria-label="Selected location details">
+          {selectedLocation ? (
+            <LocationDetail location={selectedLocation} accessToken={accessToken} />
+          ) : (
+            <EmptyState />
+          )}
+        </aside>
       </div>
-    </main>
+    </>
+  );
+}
+
+function CompareView({
+  locations,
+  selectedLocation,
+  compareIds,
+  comparison,
+  isComparing,
+  compareError,
+  onTableSelect,
+  onCompareToggle,
+  onClearCompare
+}) {
+  return (
+    <div className="compare-grid">
+      <LocationTable
+        locations={locations}
+        selectedId={selectedLocation?.id}
+        compareIds={compareIds}
+        onSelect={onTableSelect}
+        onCompareToggle={onCompareToggle}
+      />
+      <ComparisonPanel
+        comparison={comparison}
+        compareIds={compareIds}
+        locations={locations}
+        isLoading={isComparing}
+        error={compareError}
+        onClear={onClearCompare}
+      />
+      <Recommendations locations={locations} />
+    </div>
+  );
+}
+
+function AssistantView({
+  selectedLocation,
+  locations,
+  accessToken,
+  messagesByLocationId,
+  setMessagesByLocationId,
+  onSelectLocation
+}) {
+  if (!selectedLocation) {
+    return (
+      <div className="empty-state">
+        <h2>No location selected</h2>
+        <p>Pick a location on the Overview or Compare view to start a conversation.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="assistant-grid">
+      <aside className="assistant-locations" aria-label="Choose a location">
+        <h2>Locations</h2>
+        <ul>
+          {locations.slice(0, 20).map((location) => (
+            <li key={location.id}>
+              <button
+                type="button"
+                className={`assistant-location-link${location.id === selectedLocation.id ? " is-active" : ""}`}
+                onClick={() => onSelectLocation(location.id)}
+              >
+                <strong>{location.name}</strong>
+                <span>Score {formatNumber(location.score)} · ROI {formatPercent(location.roi_estimate)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      <LocationChatPanel
+        location={selectedLocation}
+        accessToken={accessToken}
+        messagesByLocationId={messagesByLocationId}
+        setMessagesByLocationId={setMessagesByLocationId}
+      />
+    </div>
   );
 }
 
@@ -413,8 +527,7 @@ const QUICK_CHAT_PROMPTS = [
   "What should we do next?"
 ];
 
-function LocationChatPanel({ location, accessToken }) {
-  const [messagesByLocationId, setMessagesByLocationId] = useState({});
+function LocationChatPanel({ location, accessToken, messagesByLocationId, setMessagesByLocationId }) {
   const [question, setQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState("");
@@ -474,6 +587,7 @@ function LocationChatPanel({ location, accessToken }) {
       <div className="chat-header-bar">
         <div className="chat-heading">
           <h3 id="location-chat-title">EV planning assistant</h3>
+          <p>Talking about {location.name}</p>
         </div>
 
         <div className="chat-quick-actions" aria-label="Quick EV planning questions">
@@ -517,8 +631,11 @@ function LocationChatPanel({ location, accessToken }) {
           </div>
         )}
         {isAsking ? (
-          <div className="chat-message assistant">
-            <p>Reviewing location metrics and portfolio context...</p>
+          <div className="chat-message assistant is-thinking" aria-live="polite">
+            <p className="chat-thinking">
+              <span>Thinking</span>
+              <span className="chat-thinking-dots" aria-hidden="true" />
+            </p>
           </div>
         ) : null}
       </div>
@@ -544,7 +661,19 @@ function LocationChatPanel({ location, accessToken }) {
 
 function ComparisonPanel({ comparison, compareIds, locations, isLoading, error, onClear }) {
   if (!compareIds.length) {
-    return null;
+    return (
+      <section className="data-panel comparison-panel" aria-labelledby="comparison-title">
+        <div className="section-header">
+          <div>
+            <h2 id="comparison-title">Location comparison</h2>
+            <p>Select two or more locations from the table to compare.</p>
+          </div>
+        </div>
+        <div className="empty-state compact">
+          <p>Pick locations with the Compare checkbox to see a head-to-head view.</p>
+        </div>
+      </section>
+    );
   }
 
   const selectedNames = compareIds
@@ -813,8 +942,4 @@ function average(values) {
 
 function getErrorMessage(error) {
   return error instanceof Error ? error.message : "Unable to complete the request.";
-}
-
-function prefersReducedMotion() {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

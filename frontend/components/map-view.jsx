@@ -5,8 +5,6 @@ import { formatPercent } from "../lib/format.js";
 
 const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const DEFAULT_ATTRIBUTION = "&copy; OpenStreetMap contributors";
-const GRAY_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
-const GRAY_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO";
 const DEFAULT_ZOOM = 9;
 const SELECTED_LOCATION_ZOOM = 14;
 
@@ -17,10 +15,8 @@ export function MapView({ locations, selectedId, onSelect, isGrayMap = false }) 
   const tileLayerRef = useRef(null);
   const markerRefs = useRef([]);
   const locationKeyRef = useRef("");
-  const colorTileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || DEFAULT_TILE_URL;
-  const colorAttribution = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION;
-  const tileUrl = isGrayMap ? GRAY_TILE_URL : colorTileUrl;
-  const attribution = isGrayMap ? GRAY_ATTRIBUTION : colorAttribution;
+  const tileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || DEFAULT_TILE_URL;
+  const attribution = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION;
 
   useEffect(() => {
     let isMounted = true;
@@ -49,6 +45,11 @@ export function MapView({ locations, selectedId, onSelect, isGrayMap = false }) 
     });
 
     mapRef.current = map;
+    tileLayerRef.current = leaflet.tileLayer(tileUrl, {
+      attribution,
+      maxZoom: 19
+    }).addTo(map);
+
     const resizeObserver =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize());
     resizeObserver?.observe(mapContainer);
@@ -61,18 +62,7 @@ export function MapView({ locations, selectedId, onSelect, isGrayMap = false }) 
       mapRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [leaflet]);
-
-  useEffect(() => {
-    if (!leaflet || !mapRef.current) return;
-    if (tileLayerRef.current) {
-      tileLayerRef.current.remove();
-    }
-    tileLayerRef.current = leaflet.tileLayer(tileUrl, {
-      attribution,
-      maxZoom: 19
-    }).addTo(mapRef.current);
-  }, [leaflet, tileUrl, attribution]);
+  }, [attribution, leaflet, tileUrl]);
 
   useEffect(() => {
     if (!leaflet || !mapRef.current) {
@@ -118,6 +108,11 @@ export function MapView({ locations, selectedId, onSelect, isGrayMap = false }) 
       mapRef.current.setView(getCenter(locations), DEFAULT_ZOOM);
     }
   }, [leaflet, locations, selectedId, onSelect]);
+
+  useEffect(() => {
+    containerRef.current?.classList.toggle("is-gray-map", isGrayMap);
+    mapRef.current?.invalidateSize();
+  }, [isGrayMap]);
 
   return <div ref={containerRef} className="map-canvas" />;
 }
