@@ -252,7 +252,7 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
                   </span>
                   <span className="map-mode-state">{isGrayMap ? "On" : "Off"}</span>
                 </button>
-                <span className="status-text">{isLoading ? "Loading" : "Ready"}</span>
+                {isLoading && <span className="status-text">Loading</span>}
               </div>
             </div>
             <MapView
