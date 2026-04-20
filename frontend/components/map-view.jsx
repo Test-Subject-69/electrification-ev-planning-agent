@@ -5,18 +5,22 @@ import { formatPercent } from "../lib/format.js";
 
 const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const DEFAULT_ATTRIBUTION = "&copy; OpenStreetMap contributors";
+const GRAY_TILE_URL = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
+const GRAY_ATTRIBUTION = "&copy; OpenStreetMap contributors &copy; CARTO";
 const DEFAULT_ZOOM = 9;
 const SELECTED_LOCATION_ZOOM = 14;
 
-export function MapView({ locations, selectedId, onSelect }) {
+export function MapView({ locations, selectedId, onSelect, isGrayMap = false }) {
   const [leaflet, setLeaflet] = useState(null);
   const mapRef = useRef(null);
   const containerRef = useRef(null);
   const tileLayerRef = useRef(null);
   const markerRefs = useRef([]);
   const locationKeyRef = useRef("");
-  const tileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || DEFAULT_TILE_URL;
-  const attribution = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION;
+  const colorTileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || DEFAULT_TILE_URL;
+  const colorAttribution = process.env.NEXT_PUBLIC_MAP_ATTRIBUTION || DEFAULT_ATTRIBUTION;
+  const tileUrl = isGrayMap ? GRAY_TILE_URL : colorTileUrl;
+  const attribution = isGrayMap ? GRAY_ATTRIBUTION : colorAttribution;
 
   useEffect(() => {
     let isMounted = true;
@@ -37,26 +41,38 @@ export function MapView({ locations, selectedId, onSelect }) {
       return;
     }
 
-    const map = leaflet.map(containerRef.current, {
+    const mapContainer = containerRef.current;
+    const map = leaflet.map(mapContainer, {
       center: getCenter(locations),
       zoom: DEFAULT_ZOOM,
       scrollWheelZoom: true
     });
 
-    tileLayerRef.current = leaflet.tileLayer(tileUrl, {
-      attribution,
-      maxZoom: 19
-    }).addTo(map);
-
     mapRef.current = map;
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => map.invalidateSize());
+    resizeObserver?.observe(mapContainer);
+    window.setTimeout(() => map.invalidateSize(), 0);
 
     return () => {
+      resizeObserver?.disconnect();
       markerRefs.current.forEach((marker) => marker.remove());
       mapRef.current?.remove();
       mapRef.current = null;
       tileLayerRef.current = null;
     };
-  }, [attribution, leaflet, tileUrl]);
+  }, [leaflet]);
+
+  useEffect(() => {
+    if (!leaflet || !mapRef.current) return;
+    if (tileLayerRef.current) {
+      tileLayerRef.current.remove();
+    }
+    tileLayerRef.current = leaflet.tileLayer(tileUrl, {
+      attribution,
+      maxZoom: 19
+    }).addTo(mapRef.current);
+  }, [leaflet, tileUrl, attribution]);
 
   useEffect(() => {
     if (!leaflet || !mapRef.current) {

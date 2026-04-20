@@ -10,6 +10,7 @@ import {
   uploadLocationsCsv
 } from "../lib/api.js";
 import { formatNumber, formatPercent } from "../lib/format.js";
+import { BrandLogo } from "./brand-logo.jsx";
 import { MapView } from "./map-view.jsx";
 
 const LOCATION_PAGE_SIZE = 10;
@@ -22,6 +23,7 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
   const [isComparing, setIsComparing] = useState(false);
   const [compareError, setCompareError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isGrayMap, setIsGrayMap] = useState(false);
   const [message, setMessage] = useState("");
   const [mapAskLocationId, setMapAskLocationId] = useState("");
   const uploadInputRef = useRef(null);
@@ -180,9 +182,11 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
     <main className="app-shell">
       <header className="app-header">
         <div className="app-title">
-          <p className="brand-line">Walker-Miller Energy Services</p>
-          <h1>Electrification & EV Planning Agent</h1>
-          {currentUserEmail ? <p className="app-user">Signed in as {currentUserEmail}</p> : null}
+          <BrandLogo />
+          <div className="app-product-name">
+            <h1>Electrification & EV Planning Agent</h1>
+            {currentUserEmail ? <p className="app-user">Signed in as {currentUserEmail}</p> : null}
+          </div>
         </div>
 
         <div className="app-actions" aria-label="Planning actions">
@@ -233,9 +237,30 @@ export function PlanningDashboard({ accessToken = "", currentUserEmail = "", onS
                 <h2 id="map-title">Scored location map</h2>
                 <p>{locations.length ? `${locations.length} candidate locations` : "No locations loaded"}</p>
               </div>
-              <span className="status-text">{isLoading ? "Loading" : "Ready"}</span>
+              <div className="map-header-actions">
+                <button
+                  className="map-mode-switch"
+                  type="button"
+                  role="switch"
+                  aria-checked={isGrayMap}
+                  aria-label="Toggle gray map"
+                  onClick={() => setIsGrayMap((current) => !current)}
+                >
+                  <span className="map-mode-copy">Gray map</span>
+                  <span className="map-mode-track" aria-hidden="true">
+                    <span className="map-mode-thumb" />
+                  </span>
+                  <span className="map-mode-state">{isGrayMap ? "On" : "Off"}</span>
+                </button>
+                <span className="status-text">{isLoading ? "Loading" : "Ready"}</span>
+              </div>
             </div>
-            <MapView locations={locations} selectedId={selectedLocation?.id} onSelect={handleMapSelect} />
+            <MapView
+              locations={locations}
+              selectedId={selectedLocation?.id}
+              onSelect={handleMapSelect}
+              isGrayMap={isGrayMap}
+            />
             {selectedLocation && mapAskLocationId === selectedLocation.id ? (
               <button className="map-ask-button" type="button" onClick={handleAskForMore}>
                 Ask for more
