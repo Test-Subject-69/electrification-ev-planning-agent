@@ -532,11 +532,16 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
   const [isAsking, setIsAsking] = useState(false);
   const [error, setError] = useState("");
   const messages = messagesByLocationId[location.id] || [];
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     setQuestion("");
     setError("");
   }, [location.id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, isAsking, location.id]);
 
   async function handleAsk(nextQuestion) {
     const text = String(nextQuestion || question).trim();
@@ -609,9 +614,9 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
         {messages.length ? (
           messages.map((message) => (
             <article key={message.id} className={`chat-message ${message.role}`}>
-              <p>{message.text}</p>
+              <ChatMessageContent message={message} />
               {message.sources?.length ? (
-                <span>Sources: {message.sources.join(", ")}</span>
+                <span className="chat-sources">Sources: {message.sources.join(", ")}</span>
               ) : null}
               {message.recommendedFollowUp ? (
                 <button
@@ -638,6 +643,7 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
             </p>
           </div>
         ) : null}
+        <div ref={messagesEndRef} className="chat-scroll-anchor" aria-hidden="true" />
       </div>
 
       {error ? <div className="notice notice-warning">{error}</div> : null}
@@ -657,6 +663,99 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
       </form>
     </section>
   );
+}
+
+function ChatMessageContent({ message }) {
+  if (message.role !== "assistant") {
+    return <p>{message.text}</p>;
+  }
+
+  return <StructuredChatAnswer text={message.text} />;
+}
+
+function StructuredChatAnswer({ text }) {
+  const sections = parseStructuredAnswer(text);
+
+  if (sections.length <= 1 && sections[0]?.title === "") {
+    return (
+      <div className="chat-answer">
+        {sections[0].paragraphs.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="chat-answer">
+      {sections.map((section) => (
+        <section className="chat-answer-section" key={`${section.title}-${section.paragraphs.join("|")}`}>
+          {section.title ? <h4>{section.title}</h4> : null}
+          {section.paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          {section.items.length ? (
+            <ul>
+              {section.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function parseStructuredAnswer(text) {
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (!lines.length) {
+    return [{ title: "", paragraphs: ["No explanation was returned."], items: [] }];
+  }
+
+  const sections = [];
+  let current = { title: "", paragraphs: [], items: [] };
+
+  function pushCurrent() {
+    if (current.title || current.paragraphs.length || current.items.length) {
+      sections.push(current);
+    }
+  }
+
+  for (const line of lines) {
+    const headingMatch = line.match(/^(overview|key factors?|risks?|constraints?|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i);
+
+    if (headingMatch) {
+      pushCurrent();
+      current = {
+        title: titleCase(headingMatch[1]),
+        paragraphs: headingMatch[2] ? [headingMatch[2]] : [],
+        items: []
+      };
+      continue;
+    }
+
+    const bulletMatch = line.match(/^[-*•]\s*(.+)$/);
+    if (bulletMatch) {
+      current.items.push(bulletMatch[1]);
+      continue;
+    }
+
+    current.paragraphs.push(line);
+  }
+
+  pushCurrent();
+  return sections.length ? sections : [{ title: "", paragraphs: [String(text)], items: [] }];
+}
+
+function titleCase(value) {
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function ComparisonPanel({ comparison, compareIds, locations, isLoading, error, onClear }) {

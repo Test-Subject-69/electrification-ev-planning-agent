@@ -48,5 +48,10 @@ function createClient() {
 }
 
 function normalizeText(value) {
-  return String(value).trim().replace(/\s+/g, " ");
+  return String(value)
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim().replace(/[ \t]+/g, " "))
+    .filter(Boolean)
+    .join("\n");
 }

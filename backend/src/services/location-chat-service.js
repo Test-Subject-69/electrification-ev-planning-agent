@@ -55,10 +55,17 @@ export class LocationChatService {
           "If the user's question cannot be answered from the supplied context, say the current dataset does not include that information and name the available metrics.",
           "Do not answer random, test, or off-topic inputs with a generic location explanation.",
           "Directly answer the user's question. If they ask about risks, focus on risks and constraints. If they ask what to do next, focus on actions. If they ask why the site is good, focus on strengths.",
-          "Answer in a concise executive brief with supporting metrics and a recommended next step."
+          "Return a concise executive brief using this exact readable structure with line breaks. Do not combine the sections into one paragraph:",
+          "Overview: one sentence that directly answers the question.",
+          "Key factors:",
+          "- two to three bullets with the strongest supporting metrics.",
+          "Risks:",
+          "- one to two bullets using only available risk flags or scoring constraints.",
+          "Recommended next step: one clear action sentence.",
+          "Keep each section short and do not use markdown tables."
         ].join(" "),
       input: buildPrompt(location, portfolio, safeQuestion),
-      maxTokens: 260
+      maxTokens: 360
     });
     const recommendedFollowUp = await generateRecommendedFollowUp({
       ai: this.ai,
@@ -207,11 +214,15 @@ function getUnavailableDataTopic(question) {
 }
 
 function buildUnavailableDataAnswer(location, topic) {
-  return normalizeAnswer(
-    `The current dataset does not include ${topic} for ${location.name}. ` +
-      "I can only use the loaded planning data: score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, strengths, risks, and next steps. " +
-      "Recommended next step: validate this missing item during site feasibility review before committing capital."
-  );
+  return [
+    `Overview: The current dataset does not include ${topic} for ${location.name}.`,
+    "Key factors:",
+    "- Available fields include score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, strengths, risks, and next steps.",
+    "- The answer must stay within those loaded planning metrics.",
+    "Risks:",
+    "- This missing item should not be assumed or presented as confirmed.",
+    "Recommended next step: Validate this missing item during site feasibility review before committing capital."
+  ].join("\n");
 }
 
 async function generateRecommendedFollowUp({ ai, location, portfolio, question, answer }) {
@@ -344,27 +355,41 @@ function buildFallbackAnswer(location, portfolio, question) {
   const intent = getQuestionIntent(question);
 
   if (intent === "risks") {
-    return normalizeAnswer(
-      `${location.name} has ${risks.length} planning risk${risks.length === 1 ? "" : "s"} to review. ` +
-        `Key risk: ${risks[0]}. ` +
-        `Supporting context: score ${location.score}, ROI ${location.roi_estimate}%, grid readiness ${location.grid_readiness}%, and traffic score ${location.traffic_score}. ` +
-        `Recommended next step: ${nextStep}.`
-    );
+    return [
+      `Overview: ${location.name} has ${risks.length} planning risk${risks.length === 1 ? "" : "s"} to review before advancing.`,
+      "Key factors:",
+      `- Score is ${location.score}, ROI estimate is ${location.roi_estimate}%, grid readiness is ${location.grid_readiness}%, and traffic score is ${location.traffic_score}.`,
+      `- The site ranks ${portfolio.rank} of ${portfolio.totalLocations} with ${location.priority.toLowerCase()} priority.`,
+      "Risks:",
+      `- ${risks[0]}.`,
+      "Recommended next step:",
+      `- ${nextStep}.`
+    ].join("\n");
   }
 
   if (intent === "next_steps") {
-    return normalizeAnswer(
-      `Next steps for ${location.name}: ${nextSteps.join(" ")} ` +
-        `This site is currently ranked ${portfolio.rank} of ${portfolio.totalLocations} with ${location.priority.toLowerCase()} priority, so the next review should validate the assumptions before moving toward investment.`
-    );
+    return [
+      `Overview: ${location.name} is ready for the next planning review based on its current score and priority.`,
+      "Key factors:",
+      `- Rank is ${portfolio.rank} of ${portfolio.totalLocations}; priority is ${location.priority}.`,
+      `- Score is ${location.score}, ROI estimate is ${location.roi_estimate}%, and grid readiness is ${location.grid_readiness}%.`,
+      "Risks:",
+      `- ${risks[0]}.`,
+      "Recommended next step:",
+      ...nextSteps.map((step) => `- ${stripTrailingPunctuation(step)}.`)
+    ].join("\n");
   }
 
-  return normalizeAnswer(
-    `${location.name} is a ${location.priority.toLowerCase()}-priority EV charging candidate ranked ${portfolio.rank} of ${portfolio.totalLocations}. ` +
-      `It is promising because ${strengths.join(" and ")}. ` +
-      `The main planning risk is ${risks[0]}. ` +
-      `Recommended next step: ${nextStep}.`
-  );
+  return [
+    `Overview: ${location.name} is a ${location.priority.toLowerCase()}-priority EV charging candidate ranked ${portfolio.rank} of ${portfolio.totalLocations}.`,
+    "Key factors:",
+    ...strengths.slice(0, 3).map((strength) => `- ${strength}.`),
+    `- ROI estimate is ${location.roi_estimate}% and score is ${location.score}.`,
+    "Risks:",
+    `- ${risks[0]}.`,
+    "Recommended next step:",
+    `- ${nextStep}.`
+  ].join("\n");
 }
 
 function buildPortfolioContext(locations, selectedLocation) {
@@ -558,10 +583,6 @@ function normalizeLookupKey(value) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
-}
-
-function normalizeAnswer(value) {
-  return String(value).trim().replace(/\s+/g, " ");
 }
 
 function stripTrailingPunctuation(value) {
