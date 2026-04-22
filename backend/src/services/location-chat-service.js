@@ -59,14 +59,15 @@ export class LocationChatService {
           "If the user's question cannot be answered from the supplied context, say the current dataset does not include that information and name the available metrics.",
           "Do not answer random, test, or off-topic inputs with a generic location explanation.",
           "Directly answer the user's question and choose only the sections that fit the question.",
-          "Do not force Key factors or Risks into every response.",
-          "Use Key factors only when the user asks why a site is promising, asks for supporting evidence, or needs metric drivers.",
+          "Use plain headings only: Answer, Supporting data, Risks, Comparison, Metric details, Next step, or Next steps.",
+          "Never use the headings Key factors or What this means.",
+          "Do not output a heading unless it has content below it.",
+          "Use Supporting data only when the user asks why a site is promising, asks for evidence, or needs metric drivers.",
           "Use Risks only when the user asks about risks, constraints, concerns, weaknesses, or when important risk flags are necessary to answer the question.",
-          "Use Recommended next step or Recommended next steps only when the user asks what to do next, asks for planning action, or the answer needs a clear action.",
-          "For comparison or portfolio questions, use Overview, Comparison, and Recommended next step if useful.",
-          "For a narrow metric question, use Overview and Metric readout. Add What this means if interpretation is useful.",
+          "Use Next step or Next steps only when the user asks what to do next, asks for planning action, or the answer needs a clear action.",
+          "For comparison or portfolio questions, use Answer and Comparison. Add Next step only if useful.",
+          "For a narrow metric question, use Answer and Metric details.",
           "Keep the structure readable with line breaks. Do not combine everything into one long paragraph.",
-          "Use short headings such as Overview, Key factors, Risks, Comparison, Metric readout, What this means, or Recommended next step only when they are relevant.",
           "Keep each section short and do not use markdown tables."
         ].join(" "),
       input: buildPrompt(location, portfolio, safeQuestion),
@@ -222,11 +223,11 @@ function getUnavailableDataTopic(question) {
 
 function buildUnavailableDataAnswer(location, topic) {
   return [
-    `Overview: The current dataset does not include ${topic} for ${location.name}.`,
+    `Answer: The current dataset does not include ${topic} for ${location.name}.`,
     "Available data:",
     "- Available fields include score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, strengths, risks, and next steps.",
     "- The answer must stay within those loaded planning metrics.",
-    "Recommended next step: Validate this missing item during site feasibility review before committing capital."
+    "Next step: Validate this missing item during site feasibility review before committing capital."
   ].join("\n");
 }
 
@@ -432,25 +433,25 @@ function buildFallbackAnswer(location, portfolio, question) {
 
   if (intent === "risks") {
     return [
-      `Overview: ${location.name} has ${risks.length} planning risk${risks.length === 1 ? "" : "s"} to review before advancing.`,
+      `Answer: ${location.name} has ${risks.length} planning risk${risks.length === 1 ? "" : "s"} to review before advancing.`,
       "Risks:",
       ...risks.slice(0, 3).map((risk) => `- ${stripTrailingPunctuation(risk)}.`),
-      "Recommended next step:",
+      "Next step:",
       `- ${nextStep}.`
     ].join("\n");
   }
 
   if (intent === "next_steps") {
     return [
-      `Overview: ${location.name} is ready for the next planning review based on its current score, ROI estimate, and priority.`,
-      "Recommended next steps:",
+      `Answer: ${location.name} is ready for the next planning review based on its current score, ROI estimate, and priority.`,
+      "Next steps:",
       ...nextSteps.map((step) => `- ${stripTrailingPunctuation(step)}.`)
     ].join("\n");
   }
 
   if (intent === "comparison") {
     return [
-      `Overview: ${location.name} ranks ${portfolio.rank} of ${portfolio.totalLocations} with a score of ${location.score}.`,
+      `Answer: ${location.name} ranks ${portfolio.rank} of ${portfolio.totalLocations} with a score of ${location.score}.`,
       "Comparison:",
       `- ROI estimate is ${compareToAverage(location.roi_estimate, portfolio.averages.roi_estimate)} the portfolio average (${location.roi_estimate}% vs ${portfolio.averages.roi_estimate}%).`,
       `- Grid readiness is ${compareToAverage(location.grid_readiness, portfolio.averages.grid_readiness)} the portfolio average (${location.grid_readiness}% vs ${portfolio.averages.grid_readiness}%).`,
@@ -460,8 +461,8 @@ function buildFallbackAnswer(location, portfolio, question) {
 
   if (intent === "metric") {
     return [
-      `Overview: ${location.name} has a score of ${location.score} and an ROI estimate of ${location.roi_estimate}%.`,
-      "Metric readout:",
+      `Answer: ${location.name} has a score of ${location.score} and an ROI estimate of ${location.roi_estimate}%.`,
+      "Metric details:",
       `- Rank: ${portfolio.rank} of ${portfolio.totalLocations}.`,
       `- Grid readiness: ${location.grid_readiness}%, traffic: ${location.traffic_score}, energy demand: ${location.energy_demand}, EV adoption: ${location.ev_adoption_score}.`,
       `- Portfolio average score is ${portfolio.averages.score} and average ROI is ${portfolio.averages.roi_estimate}%.`
@@ -469,11 +470,11 @@ function buildFallbackAnswer(location, portfolio, question) {
   }
 
   const response = [
-    `Overview: ${location.name} is a ${location.priority.toLowerCase()}-priority EV charging candidate ranked ${portfolio.rank} of ${portfolio.totalLocations}.`,
-    "Key factors:",
+    `Answer: ${location.name} is a ${location.priority.toLowerCase()}-priority EV charging candidate ranked ${portfolio.rank} of ${portfolio.totalLocations}.`,
+    "Supporting data:",
     ...strengths.slice(0, 3).map((strength) => `- ${strength}.`),
     `- ROI estimate is ${location.roi_estimate}% and score is ${location.score}.`,
-    "Recommended next step:",
+    "Next step:",
     `- ${nextStep}.`
   ];
 

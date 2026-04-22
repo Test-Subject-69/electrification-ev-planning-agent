@@ -736,20 +736,20 @@ function parseStructuredAnswer(text) {
   let current = { title: "", paragraphs: [], items: [] };
 
   function pushCurrent() {
-    if (current.title || current.paragraphs.length || current.items.length) {
+    if (current.paragraphs.length || current.items.length) {
       sections.push(current);
     }
   }
 
   for (const line of lines) {
     const headingMatch = line.match(
-      /^(overview|answer|available data|key factors?|risks?|constraints?|comparison|metric readout|what this means|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i
+      /^(overview|answer|available data|supporting data|key factors?|risks?|constraints?|comparison|metric readout|metric details|what this means|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i
     );
 
     if (headingMatch) {
       pushCurrent();
       current = {
-        title: titleCase(headingMatch[1]),
+        title: normalizeSectionTitle(headingMatch[1]),
         paragraphs: headingMatch[2] ? [headingMatch[2]] : [],
         items: []
       };
@@ -769,8 +769,25 @@ function parseStructuredAnswer(text) {
   return sections.length ? sections : [{ title: "", paragraphs: [String(text)], items: [] }];
 }
 
-function titleCase(value) {
-  return String(value)
+function normalizeSectionTitle(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  const titleMap = {
+    overview: "Answer",
+    answer: "Answer",
+    "key factor": "Supporting data",
+    "key factors": "Supporting data",
+    "supporting data": "Supporting data",
+    "metric readout": "Metric details",
+    "metric details": "Metric details",
+    "what this means": "Planning takeaway",
+    "recommended step": "Next step",
+    "recommended next step": "Next step",
+    "recommended next steps": "Next steps",
+    "next step": "Next step",
+    "next steps": "Next steps"
+  };
+
+  return titleMap[normalized] || String(value)
     .replace(/_/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
