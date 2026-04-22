@@ -1275,21 +1275,21 @@ h3 {
 
 .chat-answer {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .chat-answer-section {
   display: grid;
-  gap: 5px;
+  gap: 6px;
 }
 
 .chat-answer-section h4 {
   margin: 0;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .chat-answer-section p {

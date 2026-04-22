@@ -743,7 +743,7 @@ function parseStructuredAnswer(text) {
 
   for (const line of lines) {
     const headingMatch = line.match(
-      /^(overview|answer|available data|supporting data|key factors?|risks?|constraints?|comparison|metric readout|metric details|what this means|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i
+      /^(overview|answer|available data|supporting data|key factors?|risks?|constraints?|comparison|metric readout|metric details|what this means|recommended next steps?|recommended step|next steps?)(?:\s*:\s*(.*))?$/i
     );
 
     if (headingMatch) {
@@ -756,7 +756,7 @@ function parseStructuredAnswer(text) {
       continue;
     }
 
-    const bulletMatch = line.match(/^[-*•]\s*(.+)$/);
+    const bulletMatch = line.match(/^[-*\u2022]\s*(.+)$/);
     if (bulletMatch) {
       current.items.push(bulletMatch[1]);
       continue;
@@ -774,9 +774,13 @@ function normalizeSectionTitle(value) {
   const titleMap = {
     overview: "Answer",
     answer: "Answer",
+    "available data": "Available data",
     "key factor": "Supporting data",
     "key factors": "Supporting data",
     "supporting data": "Supporting data",
+    risks: "Risks",
+    constraints: "Risks",
+    comparison: "Comparison",
     "metric readout": "Metric details",
     "metric details": "Metric details",
     "what this means": "Planning takeaway",

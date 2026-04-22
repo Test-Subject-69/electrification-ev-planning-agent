@@ -61,6 +61,7 @@ export class LocationChatService {
           "Directly answer the user's question and choose only the sections that fit the question.",
           "Use plain headings only: Answer, Supporting data, Risks, Comparison, Metric details, Next step, or Next steps.",
           "Never use the headings Key factors or What this means.",
+          "Write headings with a colon, such as Answer: or Supporting data:.",
           "Do not output a heading unless it has content below it.",
           "Use Supporting data only when the user asks why a site is promising, asks for evidence, or needs metric drivers.",
           "Use Risks only when the user asks about risks, constraints, concerns, weaknesses, or when important risk flags are necessary to answer the question.",
