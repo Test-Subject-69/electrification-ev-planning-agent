@@ -566,7 +566,8 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
         role: "assistant",
         text: payload.answer || "No explanation was returned.",
         sources: payload.sources || [],
-        recommendedFollowUp: payload.recommended_follow_up || ""
+        recommendedFollowUp: payload.recommended_follow_up || "",
+        recommendedFollowUps: getRecommendedFollowUps(payload)
       });
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -618,16 +619,7 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
               {message.sources?.length ? (
                 <span className="chat-sources">Sources: {message.sources.join(", ")}</span>
               ) : null}
-              {message.recommendedFollowUp ? (
-                <button
-                  className="chat-follow-up"
-                  type="button"
-                  onClick={() => handleAsk(message.recommendedFollowUp)}
-                  disabled={isAsking}
-                >
-                  Suggested: {message.recommendedFollowUp}
-                </button>
-              ) : null}
+              <ChatFollowUpQuestions followUps={getMessageFollowUps(message)} onAsk={handleAsk} isAsking={isAsking} />
             </article>
           ))
         ) : (
@@ -662,6 +654,29 @@ function LocationChatPanel({ location, accessToken, messagesByLocationId, setMes
         </button>
       </form>
     </section>
+  );
+}
+
+function ChatFollowUpQuestions({ followUps, onAsk, isAsking }) {
+  if (!followUps.length) {
+    return null;
+  }
+
+  return (
+    <div className="chat-follow-ups" aria-label="Suggested follow-up questions">
+      <span>Suggested questions</span>
+      {followUps.map((followUp) => (
+        <button
+          className="chat-follow-up"
+          type="button"
+          key={followUp}
+          onClick={() => onAsk(followUp)}
+          disabled={isAsking}
+        >
+          {followUp}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -1028,6 +1043,35 @@ function EmptyState() {
 
 function createChatMessageId(role) {
   return `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getRecommendedFollowUps(payload) {
+  const values = Array.isArray(payload?.recommended_follow_ups) ? payload.recommended_follow_ups : [];
+  return dedupeFollowUps([...values, payload?.recommended_follow_up]).slice(0, 3);
+}
+
+function getMessageFollowUps(message) {
+  const values = Array.isArray(message.recommendedFollowUps) ? message.recommendedFollowUps : [];
+  return dedupeFollowUps([...values, message.recommendedFollowUp]).slice(0, 3);
+}
+
+function dedupeFollowUps(values) {
+  const seen = new Set();
+  const followUps = [];
+
+  for (const value of values) {
+    const followUp = String(value || "").trim();
+    const key = followUp.toLowerCase();
+
+    if (!followUp || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    followUps.push(followUp);
+  }
+
+  return followUps;
 }
 
 function average(values) {

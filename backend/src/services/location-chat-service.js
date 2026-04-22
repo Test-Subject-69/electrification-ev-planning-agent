@@ -29,21 +29,25 @@ export class LocationChatService {
     const scopeCheck = checkQuestionScope(safeQuestion);
 
     if (!scopeCheck.isRelevant) {
+      const followUps = getDatasetFollowUps();
       return {
         answer: RAG_SCOPE_MESSAGE,
         sources: AVAILABLE_DATA_SOURCES,
         generated_by: "rag_guardrail",
-        recommended_follow_up: "Which metrics can I ask about?"
+        recommended_follow_up: followUps[0],
+        recommended_follow_ups: followUps
       };
     }
 
     const unavailableTopic = getUnavailableDataTopic(safeQuestion);
     if (unavailableTopic) {
+      const followUps = getUnavailableDataFollowUps();
       return {
         answer: buildUnavailableDataAnswer(location, unavailableTopic),
         sources: AVAILABLE_DATA_SOURCES,
         generated_by: "rag_guardrail",
-        recommended_follow_up: "What should we validate next?"
+        recommended_follow_up: followUps[0],
+        recommended_follow_ups: followUps
       };
     }
 
@@ -67,7 +71,7 @@ export class LocationChatService {
       input: buildPrompt(location, portfolio, safeQuestion),
       maxTokens: 360
     });
-    const recommendedFollowUp = await generateRecommendedFollowUp({
+    const recommendedFollowUps = await generateRecommendedFollowUps({
       ai: this.ai,
       location,
       portfolio,
@@ -79,8 +83,9 @@ export class LocationChatService {
       answer,
       sources: SOURCES,
       generated_by: "ai",
-      recommended_follow_up: recommendedFollowUp.question,
-      follow_up_generated_by: recommendedFollowUp.generatedBy
+      recommended_follow_up: recommendedFollowUps.questions[0] || "",
+      recommended_follow_ups: recommendedFollowUps.questions,
+      follow_up_generated_by: recommendedFollowUps.generatedBy
     };
   }
 }
@@ -225,30 +230,32 @@ function buildUnavailableDataAnswer(location, topic) {
   ].join("\n");
 }
 
-async function generateRecommendedFollowUp({ ai, location, portfolio, question, answer }) {
-  const fallback = getFallbackFollowUp(location, portfolio, question);
+async function generateRecommendedFollowUps({ ai, location, portfolio, question, answer }) {
+  const fallbacks = getFallbackFollowUps(location, portfolio, question);
 
   try {
-    const aiQuestion = await ai.generateText({
+    const aiQuestions = await ai.generateText({
       instructions: [
-        "Generate one useful follow-up question for an EV infrastructure planning chatbot.",
+        "Generate exactly three strong follow-up questions for an EV infrastructure planning chatbot.",
+        "Optimize the questions for Walker-Miller Energy Services leadership, program managers, and operations teams.",
+        "Favor questions that help with investment confidence, partner or utility conversations, field validation, portfolio comparison, risk reduction, and program planning.",
         "Use only the supplied selected-location data and answer context.",
-        "The question must be answerable from these available fields only: score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, score breakdown, strengths, risks, next steps, and portfolio averages.",
+        "Every question must be answerable from these available fields only: score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, score breakdown, strengths, risks, next steps, and portfolio averages.",
         "Do not ask about unavailable facts such as exact utility capacity, ownership, incentives, charger count, permitting, construction cost, addresses, or parcel details.",
         "Do not repeat the user's question.",
         "Avoid these generic questions unless no better option exists: Why is this area good? What are the risks? What should we do next?",
-        "Return only the follow-up question. Keep it under 14 words."
+        "Return one question per line. Do not number the questions. Keep each question under 14 words."
       ].join(" "),
       input: buildFollowUpPrompt(location, portfolio, question, answer),
-      maxTokens: 40
+      maxTokens: 120
     });
     return {
-      question: sanitizeFollowUpQuestion(aiQuestion, fallback, question),
+      questions: sanitizeFollowUpQuestions(aiQuestions, fallbacks, question),
       generatedBy: "ai"
     };
   } catch {
     return {
-      question: fallback,
+      questions: fallbacks,
       generatedBy: "deterministic_fallback"
     };
   }
@@ -291,18 +298,50 @@ function buildFollowUpPrompt(location, portfolio, question, answer) {
   ].join("\n");
 }
 
-function sanitizeFollowUpQuestion(value, fallback, previousQuestion) {
+function sanitizeFollowUpQuestions(value, fallbacks, previousQuestion) {
+  const questions = [];
+  const seen = new Set([normalizeLookupKey(previousQuestion)]);
+  const candidates = [...parseFollowUpQuestions(value), ...fallbacks];
+
+  for (const candidate of candidates) {
+    const question = sanitizeFollowUpCandidate(candidate);
+    const key = normalizeLookupKey(question);
+
+    if (!key || seen.has(key) || !isValidFollowUpQuestion(question, previousQuestion)) {
+      continue;
+    }
+
+    questions.push(question);
+    seen.add(key);
+
+    if (questions.length === 3) {
+      break;
+    }
+  }
+
+  return questions.length ? questions : fallbacks.slice(0, 3);
+}
+
+function parseFollowUpQuestions(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .flatMap((line) => line.split(/(?<=\?)\s+(?=[A-Z])/))
+    .map((line) =>
+      line
+        .replace(/^\s*(?:[-*\u2022]|\d+[.)])\s*/, "")
+        .replace(/^(suggested questions?|follow-up questions?|follow ups?)\s*:\s*/i, "")
+        .trim()
+    )
+    .filter(Boolean);
+}
+
+function sanitizeFollowUpCandidate(value) {
   const cleaned = String(value || "")
     .replace(/^["'`]+|["'`]+$/g, "")
     .replace(/^(suggested|follow-up|follow up)\s*:\s*/i, "")
     .trim();
-  const question = cleaned.endsWith("?") ? cleaned : `${cleaned}?`;
 
-  if (!isValidFollowUpQuestion(question, previousQuestion)) {
-    return fallback;
-  }
-
-  return question;
+  return cleaned.endsWith("?") ? cleaned : `${cleaned}?`;
 }
 
 function isValidFollowUpQuestion(question, previousQuestion) {
@@ -324,25 +363,61 @@ function isValidFollowUpQuestion(question, previousQuestion) {
   return checkQuestionScope(question).isRelevant;
 }
 
-function getFallbackFollowUp(location, portfolio, question) {
+function getFallbackFollowUps(location, portfolio, question) {
   const previousKey = normalizeLookupKey(question);
   const riskCount = location.analysis?.risk_flags?.length || 0;
   const strengthsCount = location.analysis?.strengths?.length || 0;
   const candidates = [
-    riskCount ? "Which risk should we validate first?" : "",
+    riskCount ? "Which risk should leadership validate first?" : "",
     strengthsCount ? "Which strength matters most for deployment?" : "",
-    "Which metric is driving the score?",
+    "Which metric creates the strongest investment confidence?",
+    "What should we discuss with the utility partner?",
+    "How does this site support near-term program planning?",
+    "What evidence supports moving this site forward?",
+    "How does this site compare with portfolio averages?",
+    "Which score factor could improve this location most?",
+    "What planning step should operations validate first?",
     "How does ROI compare with the portfolio?",
     "Is grid readiness strong enough for near-term planning?",
     "How much does traffic support this site?",
-    "How does EV adoption compare with similar locations?",
-    "What makes this site different from the portfolio average?",
-    "Which factor would improve the ranking most?",
-    location.priority === "High" ? "What makes this a high-priority site?" : "",
+    location.priority === "High" ? "What supports this high-priority recommendation?" : "",
     portfolio.rank <= 5 ? "Why is this a top-ranked location?" : ""
   ].filter(Boolean);
 
-  return candidates.find((candidate) => normalizeLookupKey(candidate) !== previousKey) || "Which metric should we review next?";
+  const selected = [];
+  const seen = new Set([previousKey]);
+
+  for (const candidate of candidates) {
+    const key = normalizeLookupKey(candidate);
+    if (!key || seen.has(key) || !isValidFollowUpQuestion(candidate, question)) {
+      continue;
+    }
+
+    selected.push(candidate);
+    seen.add(key);
+
+    if (selected.length === 3) {
+      break;
+    }
+  }
+
+  return selected.length ? selected : ["Which metric should we review next?"];
+}
+
+function getDatasetFollowUps() {
+  return [
+    "Which metric creates the strongest investment confidence?",
+    "How does this site compare with portfolio averages?",
+    "What planning step should operations validate first?"
+  ];
+}
+
+function getUnavailableDataFollowUps() {
+  return [
+    "Which available metric should we review instead?",
+    "What planning risk can we assess from current data?",
+    "What should we validate before site review?"
+  ];
 }
 
 function buildFallbackAnswer(location, portfolio, question) {
