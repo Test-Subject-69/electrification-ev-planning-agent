@@ -646,7 +646,10 @@ h3 {
   grid-template-columns: 260px minmax(0, 1fr);
   gap: 16px;
   flex: 1;
-  min-height: calc(100vh - 180px);
+  height: calc(100vh - 176px);
+  max-height: calc(100vh - 176px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .assistant-locations {
@@ -656,7 +659,9 @@ h3 {
   box-shadow: 0 1px 3px var(--shadow);
   padding: 16px;
   overflow-y: auto;
-  max-height: calc(100vh - 180px);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
 }
 
 .assistant-locations h2 {
@@ -713,6 +718,7 @@ h3 {
 .assistant-grid .location-chat {
   min-height: 0;
   height: 100%;
+  max-height: 100%;
 }
 
 /* ─── Panels ─── */
@@ -1135,8 +1141,9 @@ h3 {
 .location-chat {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 180px);
+  min-height: 0;
   height: 100%;
+  max-height: 100%;
   overflow: hidden;
 }
 
@@ -2340,13 +2347,25 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .assistant-grid {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
   .overview-grid .detail-panel {
     max-height: none;
     overflow-y: visible;
   }
 
   .assistant-locations {
-    max-height: none;
+    height: auto;
+    max-height: 260px;
+  }
+
+  .assistant-grid .location-chat {
+    height: min(70svh, 640px);
+    max-height: min(70svh, 640px);
   }
 
   .side-nav {
