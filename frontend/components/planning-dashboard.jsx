@@ -742,7 +742,9 @@ function parseStructuredAnswer(text) {
   }
 
   for (const line of lines) {
-    const headingMatch = line.match(/^(overview|key factors?|risks?|constraints?|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i);
+    const headingMatch = line.match(
+      /^(overview|answer|available data|key factors?|risks?|constraints?|comparison|metric readout|what this means|recommended next steps?|recommended step|next steps?)\s*:\s*(.*)$/i
+    );
 
     if (headingMatch) {
       pushCurrent();

@@ -58,14 +58,15 @@ export class LocationChatService {
           "Do not invent real utility capacity, ownership, incentive, charger count, construction, or demographic facts.",
           "If the user's question cannot be answered from the supplied context, say the current dataset does not include that information and name the available metrics.",
           "Do not answer random, test, or off-topic inputs with a generic location explanation.",
-          "Directly answer the user's question. If they ask about risks, focus on risks and constraints. If they ask what to do next, focus on actions. If they ask why the site is good, focus on strengths.",
-          "Return a concise executive brief using this exact readable structure with line breaks. Do not combine the sections into one paragraph:",
-          "Overview: one sentence that directly answers the question.",
-          "Key factors:",
-          "- two to three bullets with the strongest supporting metrics.",
-          "Risks:",
-          "- one to two bullets using only available risk flags or scoring constraints.",
-          "Recommended next step: one clear action sentence.",
+          "Directly answer the user's question and choose only the sections that fit the question.",
+          "Do not force Key factors or Risks into every response.",
+          "Use Key factors only when the user asks why a site is promising, asks for supporting evidence, or needs metric drivers.",
+          "Use Risks only when the user asks about risks, constraints, concerns, weaknesses, or when important risk flags are necessary to answer the question.",
+          "Use Recommended next step or Recommended next steps only when the user asks what to do next, asks for planning action, or the answer needs a clear action.",
+          "For comparison or portfolio questions, use Overview, Comparison, and Recommended next step if useful.",
+          "For a narrow metric question, use Overview and Metric readout. Add What this means if interpretation is useful.",
+          "Keep the structure readable with line breaks. Do not combine everything into one long paragraph.",
+          "Use short headings such as Overview, Key factors, Risks, Comparison, Metric readout, What this means, or Recommended next step only when they are relevant.",
           "Keep each section short and do not use markdown tables."
         ].join(" "),
       input: buildPrompt(location, portfolio, safeQuestion),
@@ -93,6 +94,7 @@ export class LocationChatService {
 function buildPrompt(location, portfolio, question) {
   return [
     `Question: ${question}`,
+    `Question intent: ${getQuestionIntent(question)}`,
     "",
     "Selected location:",
     `Name: ${location.name}`,
@@ -221,11 +223,9 @@ function getUnavailableDataTopic(question) {
 function buildUnavailableDataAnswer(location, topic) {
   return [
     `Overview: The current dataset does not include ${topic} for ${location.name}.`,
-    "Key factors:",
+    "Available data:",
     "- Available fields include score, rank, ROI estimate, population density, energy demand, traffic score, grid readiness, EV adoption score, strengths, risks, and next steps.",
     "- The answer must stay within those loaded planning metrics.",
-    "Risks:",
-    "- This missing item should not be assumed or presented as confirmed.",
     "Recommended next step: Validate this missing item during site feasibility review before committing capital."
   ].join("\n");
 }
@@ -424,19 +424,17 @@ function buildFallbackAnswer(location, portfolio, question) {
   const strengths = location.analysis?.strengths?.length
     ? location.analysis.strengths.slice(0, 2).map((strength) => strength.message)
     : getStrengths(location, portfolio);
-  const risks = getLocationRisks(location, portfolio);
   const nextSteps = getLocationNextSteps(location);
   const nextStep = stripTrailingPunctuation(nextSteps[0]);
   const intent = getQuestionIntent(question);
+  const riskFlags = location.analysis?.risk_flags?.map((risk) => risk.message).filter(Boolean) || [];
+  const risks = riskFlags.length ? riskFlags : getLocationRisks(location, portfolio);
 
   if (intent === "risks") {
     return [
       `Overview: ${location.name} has ${risks.length} planning risk${risks.length === 1 ? "" : "s"} to review before advancing.`,
-      "Key factors:",
-      `- Score is ${location.score}, ROI estimate is ${location.roi_estimate}%, grid readiness is ${location.grid_readiness}%, and traffic score is ${location.traffic_score}.`,
-      `- The site ranks ${portfolio.rank} of ${portfolio.totalLocations} with ${location.priority.toLowerCase()} priority.`,
       "Risks:",
-      `- ${risks[0]}.`,
+      ...risks.slice(0, 3).map((risk) => `- ${stripTrailingPunctuation(risk)}.`),
       "Recommended next step:",
       `- ${nextStep}.`
     ].join("\n");
@@ -444,27 +442,46 @@ function buildFallbackAnswer(location, portfolio, question) {
 
   if (intent === "next_steps") {
     return [
-      `Overview: ${location.name} is ready for the next planning review based on its current score and priority.`,
-      "Key factors:",
-      `- Rank is ${portfolio.rank} of ${portfolio.totalLocations}; priority is ${location.priority}.`,
-      `- Score is ${location.score}, ROI estimate is ${location.roi_estimate}%, and grid readiness is ${location.grid_readiness}%.`,
-      "Risks:",
-      `- ${risks[0]}.`,
-      "Recommended next step:",
+      `Overview: ${location.name} is ready for the next planning review based on its current score, ROI estimate, and priority.`,
+      "Recommended next steps:",
       ...nextSteps.map((step) => `- ${stripTrailingPunctuation(step)}.`)
     ].join("\n");
   }
 
-  return [
+  if (intent === "comparison") {
+    return [
+      `Overview: ${location.name} ranks ${portfolio.rank} of ${portfolio.totalLocations} with a score of ${location.score}.`,
+      "Comparison:",
+      `- ROI estimate is ${compareToAverage(location.roi_estimate, portfolio.averages.roi_estimate)} the portfolio average (${location.roi_estimate}% vs ${portfolio.averages.roi_estimate}%).`,
+      `- Grid readiness is ${compareToAverage(location.grid_readiness, portfolio.averages.grid_readiness)} the portfolio average (${location.grid_readiness}% vs ${portfolio.averages.grid_readiness}%).`,
+      `- Traffic score is ${compareToAverage(location.traffic_score, portfolio.averages.traffic_score)} the portfolio average (${location.traffic_score} vs ${portfolio.averages.traffic_score}).`
+    ].join("\n");
+  }
+
+  if (intent === "metric") {
+    return [
+      `Overview: ${location.name} has a score of ${location.score} and an ROI estimate of ${location.roi_estimate}%.`,
+      "Metric readout:",
+      `- Rank: ${portfolio.rank} of ${portfolio.totalLocations}.`,
+      `- Grid readiness: ${location.grid_readiness}%, traffic: ${location.traffic_score}, energy demand: ${location.energy_demand}, EV adoption: ${location.ev_adoption_score}.`,
+      `- Portfolio average score is ${portfolio.averages.score} and average ROI is ${portfolio.averages.roi_estimate}%.`
+    ].join("\n");
+  }
+
+  const response = [
     `Overview: ${location.name} is a ${location.priority.toLowerCase()}-priority EV charging candidate ranked ${portfolio.rank} of ${portfolio.totalLocations}.`,
     "Key factors:",
     ...strengths.slice(0, 3).map((strength) => `- ${strength}.`),
     `- ROI estimate is ${location.roi_estimate}% and score is ${location.score}.`,
-    "Risks:",
-    `- ${risks[0]}.`,
     "Recommended next step:",
     `- ${nextStep}.`
-  ].join("\n");
+  ];
+
+  if (riskFlags.length) {
+    response.splice(response.length - 2, 0, "Risks:", ...riskFlags.slice(0, 2).map((risk) => `- ${stripTrailingPunctuation(risk)}.`));
+  }
+
+  return response.join("\n");
 }
 
 function buildPortfolioContext(locations, selectedLocation) {
@@ -612,8 +629,16 @@ function getQuestionIntent(question) {
     return "risks";
   }
 
+  if (/\b(compare|comparison|portfolio|average|averages|rank|ranking|ranked|versus|vs)\b/.test(value)) {
+    return "comparison";
+  }
+
   if (/\b(next|step|steps|action|actions|do|recommend|recommendation|proceed|validate|plan)\b/.test(value)) {
     return "next_steps";
+  }
+
+  if (/\b(score|roi|metric|metrics|grid|readiness|traffic|demand|density|population|adoption)\b/.test(value)) {
+    return "metric";
   }
 
   return "strengths";
